@@ -1,123 +1,111 @@
 # Copyrade
 
-> Your clipboard comrade.
+**Private, direct clipboard continuity from mobile devices to Windows.**
 
-Copyrade is a privacy-focused mobile-to-Windows clipboard continuity application. Its goal is to let someone deliberately send clipboard content from an iPhone or other mobile browser directly to the native Windows clipboard, making the content immediately available to paste on the PC.
+Copyrade is a mobile-to-Windows clipboard application designed to make moving text and images between personal devices fast and effortless. Copy content on a phone, send it to a registered computer, and paste it immediately in Windows—without using email, messaging apps, or cloud clipboard storage.
 
-Copyrade is currently in early development. The first mobile clipboard capability test is working; device-to-device transfer is not implemented yet.
+> **Status:** Early development. The mobile clipboard capability prototype is complete; peer-to-peer transfer and the Windows receiver are the next major milestones.
 
-## Current status
+## How it will work
 
-The repository currently contains a React and TypeScript mobile web application with:
+1. Copy text or an image on a mobile device.
+2. Open the Copyrade PWA and choose a registered Windows computer.
+3. Send the clipboard through a direct WebRTC connection.
+4. Paste it immediately in Windows with `Ctrl+V`.
 
-- a user-initiated **Read clipboard** action;
-- secure-context and browser-capability checks;
-- clear loading, success, and error states;
-- an in-memory text preview with a clear action;
-- no clipboard-content logging, uploading, or persistence;
-- responsive and accessible mobile-oriented UI;
-- passing ESLint, TypeScript, and Vite production builds.
+The sender receives confirmation after the Windows application successfully updates the native clipboard.
 
-### Current milestone: mobile clipboard capability test
+## Why Copyrade?
 
-- [x] Create the React + TypeScript mobile application
-- [x] Read plain text through the browser Clipboard API
-- [x] Handle unsupported, insecure, and permission-denied cases
-- [x] Keep clipboard contents in page memory only
-- [ ] Test clipboard behavior in iPhone Safari over HTTPS
-- [ ] Record installed-PWA versus Safari-tab behavior
+Moving small pieces of content between mobile devices and Windows often involves an unnecessary intermediate step: sending a message to yourself, uploading a file, or relying on a cloud clipboard history.
 
-## Intended experience
+Copyrade is designed around a simpler model:
 
-```text
-Copy content on iPhone
-        ↓
-Open Copyrade and choose a Windows device
-        ↓
-Send Clipboard
-        ↓
-Windows writes the received content to its native clipboard
-        ↓
-Press Ctrl+V
-```
+- **Clipboard-first:** received content is written directly to the Windows clipboard.
+- **Peer-to-peer:** clipboard payloads travel between devices through WebRTC whenever a direct connection is available.
+- **Private by design:** Copyrade infrastructure coordinates devices without storing clipboard contents.
+- **Cross-network:** devices connect through authenticated signaling instead of relying on local-network discovery.
+- **Extensible:** the protocol is designed to support multiple clipboard representations, beginning with plain text and PNG images.
 
-The sender should report success only after the Windows application confirms that the native clipboard write succeeded.
+## Development status
 
-## Planned architecture
+| Component | Status |
+|---|---|
+| React + TypeScript mobile interface | In progress |
+| Plain-text clipboard capability prototype | Complete |
+| Real-device iPhone compatibility testing | Next |
+| Electron Windows clipboard receiver | Planned |
+| WebRTC text transfer and delivery acknowledgement | Planned |
+| Accounts and registered-device discovery | Planned |
+| Chunked image transfer | Planned |
+| Windows packaging and public alpha | Planned |
+
+The current mobile prototype includes:
+
+- user-initiated clipboard reading;
+- secure-context and browser-capability detection;
+- loading, success, empty, and error states;
+- an in-memory clipboard preview and clear action;
+- responsive, keyboard-accessible UI;
+- ESLint and TypeScript validation with a reproducible Vite build.
+
+## Architecture
+
+Copyrade separates device coordination from clipboard delivery. The backend acts as a control plane for accounts, registered devices, presence, and WebRTC signaling. Clipboard payloads use a separate peer-to-peer data plane.
 
 ```mermaid
 flowchart LR
     Mobile[Mobile PWA<br/>React + TypeScript]
-    Backend[Control plane<br/>Authentication<br/>Device registry<br/>Presence<br/>WebRTC signaling]
-    Desktop[Windows app<br/>Electron + React + TypeScript]
+    Control[Control plane<br/>Authentication<br/>Device registry<br/>Presence and signaling]
+    Desktop[Windows receiver<br/>Electron + React + TypeScript]
 
-    Mobile <-->|HTTPS and authenticated signaling| Backend
-    Desktop <-->|HTTPS and authenticated signaling| Backend
+    Mobile <-->|Authenticated HTTPS / WSS| Control
+    Desktop <-->|Authenticated HTTPS / WSS| Control
     Mobile <-->|Encrypted WebRTC DataChannel<br/>Clipboard payloads| Desktop
 ```
 
-Copyrade separates its infrastructure into two paths:
+### Privacy model
 
-- **Control plane:** authentication, registered devices, presence, and WebRTC signaling.
-- **Data plane:** clipboard payloads sent directly between devices through an encrypted WebRTC DataChannel whenever a direct connection is possible.
+Copyrade is being designed so that its backend handles only the metadata required to authenticate users, discover their devices, report presence, and establish peer connections. Clipboard contents are not intended to be stored, queued, or added to a cloud history.
 
-The planned backend does not store clipboard contents or provide cloud clipboard history. Initial releases will use direct connectivity with STUN and display a clear failure if the network requires a relay. TURN fallback is a future reliability decision.
+The Windows application will isolate privileged clipboard access inside Electron's main process and expose only a narrow, validated interface to the renderer. Transfer acknowledgements will represent a successful native clipboard write—not merely receipt of a network message.
 
-## Privacy and security principles
-
-- Clipboard contents must not be stored by the backend.
-- Clipboard contents must not appear in application logs, analytics, URLs, or signaling messages.
-- Clipboard data should remain in memory only for the active operation or transfer.
-- WebRTC encryption is not treated as device authentication; authenticated device trust will be implemented separately.
-- Incoming messages must be validated before reaching privileged desktop operations.
-- Electron renderers will not receive unrestricted Node.js or operating-system access.
-- A delivery acknowledgement will be sent only after a successful Windows clipboard write.
-
-These are architectural requirements. Features that depend on the future desktop, signaling, and account implementations are not yet complete.
-
-## Technology direction
+## Technology
 
 | Area | Technology |
 |---|---|
-| Mobile sender | React, TypeScript, Vite, PWA |
-| Windows receiver | Electron, React, TypeScript |
-| Clipboard transport | WebRTC DataChannel |
-| Signaling | Authenticated WebSocket connection |
-| Shared messages | Versioned, runtime-validated TypeScript protocol |
+| Mobile client | React, TypeScript, Vite, PWA |
+| Windows client | Electron, React, TypeScript |
+| Peer-to-peer transport | WebRTC DataChannel |
+| Device coordination | Authenticated WebSocket signaling |
+| Shared protocol | Versioned, runtime-validated TypeScript messages |
 | Planned hosting | Cloudflare Pages, Workers, Durable Objects, and D1 |
-| Source and Windows releases | GitHub and GitHub Releases |
+| Distribution | GitHub Releases |
 
-Technology choices beyond the existing mobile application remain provisional until the relevant capability tests are completed.
+The desktop, signaling, protocol, and hosting choices will be validated through working prototypes before the public alpha.
 
 ## Repository structure
 
 ```text
 copyrade/
-├── apps/
-│   └── mobile/          # Current React + TypeScript clipboard test
-├── README.md
-└── .gitignore
+|-- apps/
+|   `-- mobile/          # Current React + TypeScript mobile client
+|-- .gitignore
+`-- README.md
 ```
 
-Planned additions:
+The repository will expand to include the Electron receiver, signaling service, shared protocol package, and architecture/security documentation as those components are implemented.
 
-```text
-apps/desktop/            # Electron Windows receiver
-apps/signaling/          # Authentication, presence, and WebRTC signaling
-packages/protocol/       # Shared validated message definitions
-docs/                    # Architecture, protocol, security, and compatibility
-```
+## Getting started
 
-## Run the current mobile application
+### Requirements
 
-### Prerequisites
+- Node.js and npm
+- A modern browser with Clipboard API support
 
-- A recent Node.js and npm installation
-- A browser with Clipboard API support
+The current prototype has been tested with Node.js `24.20.0` and npm `11.19.0`.
 
-The current project has been tested with Node.js `24.20.0` and npm `11.19.0`.
-
-### Install and start
+### Run the mobile client
 
 ```bash
 cd apps/mobile
@@ -125,11 +113,9 @@ npm ci
 npm run dev
 ```
 
-Open the localhost address printed by Vite. Copy some text, select **Read clipboard**, and approve any browser-controlled paste prompt.
+Open the local address printed by Vite, copy some text, and select **Read clipboard**.
 
-Clipboard reads require a secure context. `localhost` is accepted for local development; testing on an iPhone will require an HTTPS deployment.
-
-### Quality checks
+### Validate a change
 
 ```bash
 cd apps/mobile
@@ -139,41 +125,18 @@ npm run build
 
 ## Roadmap
 
-### 1. Capability verification
+1. Validate clipboard text and image behavior on a real iPhone.
+2. Build a securely isolated Electron clipboard receiver.
+3. Establish direct WebRTC text transfer with delivery acknowledgements.
+4. Add accounts, device registration, presence, and authenticated signaling.
+5. Add bounded, chunked PNG transfer with backpressure and reassembly.
+6. Harden reconnection, tray operation, validation, packaging, and compatibility.
+7. Publish the first documented Windows alpha.
 
-- Test text clipboard access on a real iPhone
-- Investigate image clipboard representations and MIME types
-- Verify Electron can write to the Windows clipboard through secure IPC
+## Contributing
 
-### 2. Text transfer proof
-
-- Add the Electron receiver
-- Add minimal signaling
-- Establish an iPhone-to-Electron WebRTC DataChannel
-- Transfer plain text to the Windows clipboard
-- Return an acknowledgement after the clipboard write
-
-### 3. Product-shaped alpha
-
-- Add accounts and same-account device discovery
-- Authenticate device sessions and signaling actions
-- Add device presence, persistence, reconnection, and revocation
-- Add PNG-oriented image transfer with chunking and backpressure
-- Add tray operation, packaging, compatibility tests, and security hardening
-
-## Known limitations
-
-- No mobile-to-Windows transfer exists yet.
-- No Electron application or signaling backend exists yet.
-- Accounts, device registration, and authenticated sessions are not implemented.
-- Only user-initiated plain-text clipboard reads are currently tested in the mobile UI.
-- iPhone Safari and installed-PWA behavior still require real-device testing.
-- Image transfer, chunking, reconnect behavior, and Windows packaging are planned work.
-
-## Project goals
-
-Copyrade is being developed as a substantial personal software-engineering project. The project emphasizes explainable architecture, small verified milestones, accurate documentation, privacy-aware design, and learning React, TypeScript, Electron, and real-time networking through implementation.
+Copyrade is currently under active foundational development. Bug reports and technical feedback are welcome through GitHub Issues. Contribution guidance will be added once the initial architecture and development workflow have stabilized.
 
 ## License
 
-A project license has not been selected yet.
+No open-source license has been selected yet.
