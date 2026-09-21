@@ -35,6 +35,7 @@ Copyrade is designed around a simpler model:
 | Plain-text clipboard capability prototype | Complete |
 | Real-device iPhone text clipboard diagnostic | Complete |
 | Electron Windows clipboard-write diagnostic | Complete |
+| Versioned text transfer protocol | Complete |
 | WebRTC text transfer and delivery acknowledgement | Planned |
 | Accounts and registered-device discovery | Planned |
 | Chunked image transfer | Planned |
@@ -60,6 +61,9 @@ The Windows diagnostic includes:
 Real-device testing confirmed text clipboard access in iPhone Safari. Safari
 requires the user to approve its native paste action for clipboard reads, which
 is a documented platform limitation of the web client.
+
+The initial text-transfer message contract is documented in
+[`docs/protocol.md`](docs/protocol.md).
 
 ## Architecture
 
@@ -103,11 +107,16 @@ copyrade/
 |-- apps/
 |   |-- desktop/         # Electron clipboard-write diagnostic
 |   `-- mobile/          # React clipboard-read diagnostic
+|-- packages/
+|   `-- protocol/        # Versioned, runtime-validated transfer messages
+|-- package-lock.json    # Single reproducible dependency lockfile
+|-- package.json         # npm workspace commands
 |-- .gitignore
 `-- README.md
 ```
 
-The repository will expand to include the Electron receiver, signaling service, shared protocol package, and architecture/security documentation as those components are implemented.
+The repository will expand to include the signaling service and
+architecture/security documentation as those components are implemented.
 
 ## Getting started
 
@@ -118,12 +127,16 @@ The repository will expand to include the Electron receiver, signaling service, 
 
 The current prototype has been tested with Node.js `24.20.0` and npm `11.19.0`.
 
+Install all workspace dependencies once from the repository root:
+
+```bash
+npm ci
+```
+
 ### Run the mobile client
 
 ```bash
-cd apps/mobile
-npm ci
-npm run dev
+npm run dev --workspace @copyrade/mobile
 ```
 
 Open the local address printed by Vite, copy some text, and select **Read clipboard**.
@@ -131,9 +144,7 @@ Open the local address printed by Vite, copy some text, and select **Read clipbo
 ### Run the desktop diagnostic
 
 ```bash
-cd apps/desktop
-npm ci
-npm start
+npm start --workspace @copyrade/desktop
 ```
 
 Enter synthetic text, write it to the Windows clipboard, and paste it into
@@ -142,14 +153,7 @@ Notepad to confirm the native operation.
 ### Validate changes
 
 ```bash
-cd apps/mobile
-npm run lint
-npm run build
-
-cd ../desktop
-npm run lint
-npm test
-npm run build
+npm run check
 ```
 
 ## Roadmap

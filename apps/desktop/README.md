@@ -7,9 +7,8 @@ on the Windows clipboard.
 ## Run locally
 
 ```powershell
-cd apps/desktop
-npm install
-npm start
+npm ci
+npm start --workspace @copyrade/desktop
 ```
 
 Enter synthetic text, select **Write to Windows clipboard**, and paste into
