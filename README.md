@@ -4,7 +4,7 @@
 
 Copyrade is a mobile-to-Windows clipboard application designed to make moving text and images between personal devices fast and effortless. Copy content on a phone, send it to a registered computer, and paste it immediately in Windows—without using email, messaging apps, or cloud clipboard storage.
 
-> **Status:** Early development. The mobile clipboard capability prototype is complete; peer-to-peer transfer and the Windows receiver are the next major milestones.
+> **Status:** Early development. Mobile clipboard reading and secure Windows clipboard writing have been validated independently; connecting them through WebRTC is the next major milestone.
 
 ## How it will work
 
@@ -33,8 +33,8 @@ Copyrade is designed around a simpler model:
 |---|---|
 | React + TypeScript mobile interface | In progress |
 | Plain-text clipboard capability prototype | Complete |
-| Real-device iPhone compatibility testing | Next |
-| Electron Windows clipboard receiver | Planned |
+| Real-device iPhone text clipboard diagnostic | Complete |
+| Electron Windows clipboard-write diagnostic | Complete |
 | WebRTC text transfer and delivery acknowledgement | Planned |
 | Accounts and registered-device discovery | Planned |
 | Chunked image transfer | Planned |
@@ -48,6 +48,18 @@ The current mobile prototype includes:
 - an in-memory clipboard preview and clear action;
 - responsive, keyboard-accessible UI;
 - ESLint and TypeScript validation with a reproducible Vite build.
+
+The Windows diagnostic includes:
+
+- an isolated Electron renderer with Node.js integration disabled;
+- a narrow preload API for text clipboard writes;
+- main-process sender, type, and size validation;
+- acknowledgement only after the native clipboard write completes;
+- automated validation tests without clipboard-content logging.
+
+Real-device testing confirmed text clipboard access in iPhone Safari. Safari
+requires the user to approve its native paste action for clipboard reads, which
+is a documented platform limitation of the web client.
 
 ## Architecture
 
@@ -89,7 +101,8 @@ The desktop, signaling, protocol, and hosting choices will be validated through 
 ```text
 copyrade/
 |-- apps/
-|   `-- mobile/          # Current React + TypeScript mobile client
+|   |-- desktop/         # Electron clipboard-write diagnostic
+|   `-- mobile/          # React clipboard-read diagnostic
 |-- .gitignore
 `-- README.md
 ```
@@ -115,23 +128,37 @@ npm run dev
 
 Open the local address printed by Vite, copy some text, and select **Read clipboard**.
 
-### Validate a change
+### Run the desktop diagnostic
+
+```bash
+cd apps/desktop
+npm ci
+npm start
+```
+
+Enter synthetic text, write it to the Windows clipboard, and paste it into
+Notepad to confirm the native operation.
+
+### Validate changes
 
 ```bash
 cd apps/mobile
 npm run lint
 npm run build
+
+cd ../desktop
+npm run lint
+npm test
+npm run build
 ```
 
 ## Roadmap
 
-1. Validate clipboard text and image behavior on a real iPhone.
-2. Build a securely isolated Electron clipboard receiver.
-3. Establish direct WebRTC text transfer with delivery acknowledgements.
-4. Add accounts, device registration, presence, and authenticated signaling.
-5. Add bounded, chunked PNG transfer with backpressure and reassembly.
-6. Harden reconnection, tray operation, validation, packaging, and compatibility.
-7. Publish the first documented Windows alpha.
+1. Establish direct WebRTC text transfer with delivery acknowledgements.
+2. Add accounts, device registration, presence, and authenticated signaling.
+3. Validate image clipboard behavior and add bounded, chunked PNG transfer.
+4. Harden reconnection, tray operation, validation, packaging, and compatibility.
+5. Publish the first documented Windows alpha.
 
 ## Contributing
 
