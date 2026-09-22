@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
 import './App.css'
+
+const connection = new DevelopmentConnection()
 
 type ClipboardStatus = 'idle' | 'reading' | 'success' | 'error'
 
@@ -12,11 +15,26 @@ function getClipboardErrorMessage(error: unknown): string {
 }
 
 function App() {
+  const [sessionCode, setSessionCode] = useState('')
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
+  const [connectionError, setConnectionError] = useState('')
   const [clipboardText, setClipboardText] = useState('')
   const [status, setStatus] = useState<ClipboardStatus>('idle')
   const [statusMessage, setStatusMessage] = useState(
     'Copy some text, then use the button below.',
   )
+
+  useEffect(() => connection.subscribe(setConnectionState), [])
+
+  async function handleConnect() {
+    setConnectionError('')
+    try {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+      await connection.connect('mobile', sessionCode.trim().toLowerCase(), `${protocol}//${location.host}/signal`)
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : 'Connection failed.')
+    }
+  }
 
   async function handleReadClipboard() {
     if (!window.isSecureContext) {
@@ -102,6 +120,24 @@ function App() {
           This test keeps the preview in this page's memory. It does not send or
           store the clipboard contents.
         </p>
+
+        <section aria-label="Development connection" className="preview">
+          <h2>Development connection</h2>
+          <p>Unauthenticated test only. Use synthetic data.</p>
+          <label htmlFor="session-code">Session code from Windows</label>
+          <input
+            id="session-code"
+            value={sessionCode}
+            onChange={(event) => setSessionCode(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={32}
+          />
+          <p role="status">DataChannel: {connectionState}</p>
+          {connectionError && <p role="alert">{connectionError}</p>}
+          <button type="button" onClick={() => void handleConnect()}>Connect</button>
+          <button type="button" onClick={() => connection.disconnect()}>Disconnect</button>
+        </section>
       </section>
     </main>
   )

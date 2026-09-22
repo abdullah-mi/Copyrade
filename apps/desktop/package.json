@@ -12,6 +12,7 @@
     "test": "npm run build:electron && node --test --test-isolation=none dist-electron/clipboard-request.test.js"
   },
   "dependencies": {
+    "@copyrade/connection": "0.0.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

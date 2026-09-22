@@ -1,0 +1,24 @@
+{
+  "name": "@copyrade/signal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && node dist/index.js",
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "test": "npm run build && node --test --test-isolation=none dist/rooms.test.js dist/server.test.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "@types/ws": "^8.18.1",
+    "eslint": "^10.9.0",
+    "globals": "^17.11.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.67.0"
+  }
+}

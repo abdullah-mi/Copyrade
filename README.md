@@ -4,7 +4,7 @@
 
 Copyrade is a mobile-to-Windows clipboard application designed to make moving text and images between personal devices fast and effortless. Copy content on a phone, send it to a registered computer, and paste it immediately in Windows—without using email, messaging apps, or cloud clipboard storage.
 
-> **Status:** Early development. Mobile clipboard reading and secure Windows clipboard writing have been validated independently; connecting them through WebRTC is the next major milestone.
+> **Status:** Early development. Mobile clipboard reading and secure Windows clipboard writing have been validated independently. A development-only WebRTC DataChannel connected between iPhone Safari and Windows Electron in one cross-network test; clipboard transfer is not yet connected.
 
 ## How it will work
 
@@ -36,6 +36,7 @@ Copyrade is designed around a simpler model:
 | Real-device iPhone text clipboard diagnostic | Complete |
 | Electron Windows clipboard-write diagnostic | Complete |
 | Versioned text transfer protocol | Complete |
+| Development signaling and WebRTC DataChannel spike | Connected in one iPhone-to-Windows cross-network test; unauthenticated |
 | WebRTC text transfer and delivery acknowledgement | Planned |
 | Accounts and registered-device discovery | Planned |
 | Chunked image transfer | Planned |
@@ -106,8 +107,10 @@ The desktop, signaling, protocol, and hosting choices will be validated through 
 copyrade/
 |-- apps/
 |   |-- desktop/         # Electron clipboard-write diagnostic
-|   `-- mobile/          # React clipboard-read diagnostic
+|   |-- mobile/          # React clipboard-read diagnostic
+|   `-- signal/          # Local development-only signaling
 |-- packages/
+|   |-- connection/      # Shared browser WebRTC connection service
 |   `-- protocol/        # Versioned, runtime-validated transfer messages
 |-- package-lock.json    # Single reproducible dependency lockfile
 |-- package.json         # npm workspace commands
@@ -115,8 +118,9 @@ copyrade/
 `-- README.md
 ```
 
-The repository will expand to include the signaling service and
-architecture/security documentation as those components are implemented.
+The local signaling spike is documented in
+[`docs/connection-spike.md`](docs/connection-spike.md). A production control
+plane and broader architecture/security documentation remain future work.
 
 ## Getting started
 
@@ -127,11 +131,16 @@ architecture/security documentation as those components are implemented.
 
 The current prototype has been tested with Node.js `24.20.0` and npm `11.19.0`.
 
-Install all workspace dependencies once from the repository root:
+From the repository root, install dependencies and build the shared connection
+package before starting either app on a fresh checkout:
 
 ```bash
 npm ci
+npm run build --workspace @copyrade/connection
 ```
+
+The apps import `@copyrade/connection` from its generated `dist/` files. `npm ci`
+does not build them; rerun the build command after changing that package.
 
 ### Run the mobile client
 
@@ -140,6 +149,9 @@ npm run dev --workspace @copyrade/mobile
 ```
 
 Open the local address printed by Vite, copy some text, and select **Read clipboard**.
+For the iPhone-to-Windows connection test, follow
+[`docs/connection-spike.md`](docs/connection-spike.md); the mobile page alone is
+not a deployed signaling service.
 
 ### Run the desktop diagnostic
 

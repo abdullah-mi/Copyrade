@@ -10,8 +10,12 @@ mobile workspace:
 
 ```powershell
 npm ci
+npm run build --workspace @copyrade/connection
 npm run dev --workspace @copyrade/mobile
 ```
+
+Run these commands from the repository root. The shared connection package
+must be built after a fresh install because the app imports its generated files.
 
 Open the address printed by Vite and select **Read clipboard** after copying
 harmless test text.

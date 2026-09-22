@@ -11,7 +11,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace @copyrade/connection && npm run build --workspace @copyrade/protocol && npm run build --workspace @copyrade/signal && npm run build --workspace @copyrade/mobile && npm run build --workspace @copyrade/desktop",
     "check": "npm run lint && npm test && npm run build",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
