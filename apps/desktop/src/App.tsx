@@ -1,14 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
 import './App.css'
+
+const connection = new DevelopmentConnection()
+const sessionCode = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+  byte.toString(16).padStart(2, '0'),
+).join('')
 
 type WriteStatus = 'idle' | 'writing' | 'success' | 'error'
 
 function App() {
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
+  const [connectionError, setConnectionError] = useState('')
   const [text, setText] = useState('')
   const [status, setStatus] = useState<WriteStatus>('idle')
   const [statusMessage, setStatusMessage] = useState(
     'Enter synthetic test text, then write it to the Windows clipboard.',
   )
+
+  useEffect(() => connection.subscribe(setConnectionState), [])
+
+  async function handleConnect() {
+    setConnectionError('')
+    try {
+      await connection.connect('desktop', sessionCode, 'ws://127.0.0.1:8787/signal')
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : 'Connection failed.')
+    }
+  }
 
   async function handleWriteClipboard() {
     setStatus('writing')
@@ -79,6 +98,17 @@ function App() {
           main process. It does not use the network, persist the text, or log its
           contents.
         </p>
+
+        <section aria-label="Development connection">
+          <h2>Development connection</h2>
+          <p>Unauthenticated test only. Use synthetic data.</p>
+          <label htmlFor="session-code">Session code</label>
+          <input id="session-code" readOnly value={sessionCode} />
+          <p role="status">DataChannel: {connectionState}</p>
+          {connectionError && <p role="alert">{connectionError}</p>}
+          <button type="button" onClick={() => void handleConnect()}>Listen for mobile</button>
+          <button type="button" onClick={() => connection.disconnect()}>Disconnect</button>
+        </section>
       </section>
     </main>
   )

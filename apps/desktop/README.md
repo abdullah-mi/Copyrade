@@ -8,8 +8,12 @@ on the Windows clipboard.
 
 ```powershell
 npm ci
+npm run build --workspace @copyrade/connection
 npm start --workspace @copyrade/desktop
 ```
+
+Run these commands from the repository root. The desktop startup script builds
+the desktop app, but not its shared connection dependency.
 
 Enter synthetic text, select **Write to Windows clipboard**, and paste into
 Notepad. The application reports success only after Electron acknowledges the
