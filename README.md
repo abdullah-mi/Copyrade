@@ -4,7 +4,7 @@
 
 Copyrade is a mobile-to-Windows clipboard application designed to make moving text and images between personal devices fast and effortless. Copy content on a phone, send it to a registered computer, and paste it immediately in Windows—without using email, messaging apps, or cloud clipboard storage.
 
-> **Status:** Early development. Mobile clipboard reading and secure Windows clipboard writing have been validated independently. A development-only WebRTC DataChannel connected between iPhone Safari and Windows Electron in one cross-network test; clipboard transfer is not yet connected.
+> **Status:** Early development. A development-only iPhone-to-Windows text transfer has been validated end to end: WebRTC delivery, protected Electron IPC, native clipboard write, and a matching delivery acknowledgement. Device authentication is not yet implemented.
 
 ## How it will work
 
@@ -37,7 +37,7 @@ Copyrade is designed around a simpler model:
 | Electron Windows clipboard-write diagnostic | Complete |
 | Versioned text transfer protocol | Complete |
 | Development signaling and WebRTC DataChannel spike | Connected in one iPhone-to-Windows cross-network test; unauthenticated |
-| WebRTC text transfer and delivery acknowledgement | Planned |
+| WebRTC text transfer and delivery acknowledgement | Complete for the unauthenticated development slice |
 | Accounts and registered-device discovery | Planned |
 | Chunked image transfer | Planned |
 | Windows packaging and public alpha | Planned |
@@ -62,6 +62,12 @@ The Windows diagnostic includes:
 Real-device testing confirmed text clipboard access in iPhone Safari. Safari
 requires the user to approve its native paste action for clipboard reads, which
 is a documented platform limitation of the web client.
+
+Real-device testing also confirmed manually entered text and clipboard-read text
+can travel over the WebRTC DataChannel, update the Windows clipboard through the
+validated Electron boundary, and produce a matching acknowledgement on the
+phone. This development flow still uses an unauthenticated session code and
+synthetic data.
 
 The initial text-transfer message contract is documented in
 [`docs/protocol.md`](docs/protocol.md).
@@ -152,6 +158,19 @@ Open the local address printed by Vite, copy some text, and select **Read clipbo
 For the iPhone-to-Windows connection test, follow
 [`docs/connection-spike.md`](docs/connection-spike.md); the mobile page alone is
 not a deployed signaling service.
+
+### Run the development connection
+
+After installing dependencies, start signaling, the mobile client, and Electron
+together:
+
+```bash
+npm run dev:connection
+```
+
+The command labels output from each process and stops the other processes when
+one exits. Cross-device testing still requires an HTTPS route to Vite; see the
+connection-spike guide. This mode is unauthenticated and must use synthetic data.
 
 ### Run the desktop diagnostic
 

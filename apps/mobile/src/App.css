@@ -120,18 +120,29 @@ button:disabled {
   font-size: 0.9rem;
 }
 
-.preview pre {
-  margin: 0;
-  overflow-wrap: anywhere;
+.preview label {
+  display: block;
+  margin-bottom: 0.75rem;
   color: var(--heading);
-  font: inherit;
-  white-space: pre-wrap;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
-.empty-preview {
-  margin: 0;
-  color: var(--muted);
-  font-style: italic;
+.preview textarea {
+  width: 100%;
+  padding: 0.75rem;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  color: var(--heading);
+  background: var(--surface);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.preview textarea:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .privacy-note {
