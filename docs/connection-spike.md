@@ -10,18 +10,18 @@ bounded SDP/ICE messages; it is not a production control plane.
 From the repository root, after `npm ci` and
 `npm run build --workspace @copyrade/connection`:
 
-1. Start `npm run dev --workspace @copyrade/signal` in a terminal.
-2. Start `npm run dev --workspace @copyrade/mobile` in another terminal.
-3. Start `npm start --workspace @copyrade/desktop` in a third terminal.
-4. In the desktop app, select **Listen for mobile** and copy the 32-character
+1. Start `npm run dev:connection`. This builds the shared packages, then starts
+   signaling, Vite, and Electron with labelled output. The processes stop
+   together when one exits.
+2. In the desktop app, select **Listen for mobile** and copy the 32-character
    session code manually. The code is generated in memory and is not placed in a
    URL, file, or log.
-5. For an iPhone, expose Vite's port `5173` with a temporary HTTPS tunnel, as
+3. For an iPhone, expose Vite's port `5173` with a temporary HTTPS tunnel, as
    described in the mobile diagnostic workflow. The `/signal` WebSocket route
    is proxied through Vite to the localhost-only signaling server.
-6. Open the HTTPS Vite address in iPhone Safari, enter the session code, and
+4. Open the HTTPS Vite address in iPhone Safari, enter the session code, and
    select **Connect**.
-7. Confirm that both apps say `DataChannel: connected`. Then disconnect and
+5. Confirm that both apps say `DataChannel: connected`. Then disconnect and
    confirm the other side reports a disconnect. Try a wrong code and verify it
    does not show `connected`.
 
@@ -56,3 +56,18 @@ and signaling-server restart, both sides remained connected. This establishes
 one working cross-network connection, not which ICE candidate pair was selected.
 It does not verify clipboard transfer, acknowledgement, disconnect behavior,
 or reliability across other networks. Device and OS versions were not recorded.
+
+Subsequent testing confirmed disconnect and reconnect from either peer. An
+unmatched code remained in `signaling`, so the mobile connection now has a
+15-second deadline and reports a clear failure. The combined development
+launcher and an explicit IPv4 Vite loopback binding were added after diagnosing
+the repeatable tunnel workflow.
+
+The timeout was then verified on the iPhone, followed by recovery with the
+correct code. Real-device testing also completed the first text vertical slice:
+the phone sent synthetic text over the DataChannel, Electron wrote it through
+the validated IPC boundary, Windows exposed it for pasting, and the phone showed
+success after receiving the matching byte-count acknowledgement. An editable
+mobile text field supports testing without backgrounding Safari. The development
+code is restored from per-tab session storage after a reload, but the WebRTC
+connection must be re-established.
