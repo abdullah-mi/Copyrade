@@ -10,12 +10,12 @@ mobile workspace:
 
 ```powershell
 npm ci
-npm run build --workspace @copyrade/connection
+npm run build:shared
 npm run dev --workspace @copyrade/mobile
 ```
 
-Run these commands from the repository root. The shared connection package
-must be built after a fresh install because the app imports its generated files.
+Run these commands from the repository root. The shared packages must be built
+after a fresh install because the app imports their generated files.
 
 Open the address printed by Vite and select **Read clipboard** after copying
 harmless test text.
@@ -26,6 +26,8 @@ harmless test text.
 - Clipboard access is rejected outside HTTPS or localhost.
 - The interface reports unsupported, denied, empty, successful, and failed reads.
 - Real-device testing confirmed text reads in iPhone Safari over HTTPS.
+- Real-device testing confirmed text delivery to the Windows receiver and a
+  matching native-write acknowledgement over a WebRTC DataChannel.
 
 Safari requires the user to choose its native **Paste** action before a website
 can read clipboard content copied from another application. The web client

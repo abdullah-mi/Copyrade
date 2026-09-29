@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
-import {
-  createTextTransferMessage,
-  decodeProtocolMessage,
-  encodeProtocolMessage,
-} from '@copyrade/protocol'
+import { TextTransferSender, type OutgoingTransferResult } from '@copyrade/transfer'
 import './App.css'
 
 const connection = new DevelopmentConnection()
@@ -12,11 +8,6 @@ const SESSION_CODE_KEY = 'copyrade.developmentSessionCode'
 
 type ClipboardStatus = 'idle' | 'reading' | 'success' | 'error'
 type TransferStatus = 'idle' | 'sending' | 'success' | 'error'
-type PendingTransfer = {
-  transferId: string
-  byteLength: number
-  timeout: ReturnType<typeof setTimeout>
-}
 
 function getClipboardErrorMessage(error: unknown): string {
   if (error instanceof DOMException && error.name === 'NotAllowedError') {
@@ -47,50 +38,55 @@ function App() {
   const [transferMessage, setTransferMessage] = useState(
     'Connect to Windows and read clipboard text before sending.',
   )
-  const pendingTransfer = useRef<PendingTransfer | null>(null)
+  const transferSender = useRef<TextTransferSender | null>(null)
 
   useEffect(() => {
-    function finishTransfer(status: TransferStatus, message: string) {
-      if (pendingTransfer.current) clearTimeout(pendingTransfer.current.timeout)
-      pendingTransfer.current = null
-      setTransferStatus(status)
-      setTransferMessage(message)
+    function handleTransferResult(result: OutgoingTransferResult) {
+      if (result.ok) {
+        setTransferStatus('success')
+        setTransferMessage(
+          `Windows clipboard updated (${result.byteLength.toLocaleString()} bytes).`,
+        )
+        return
+      }
+
+      setTransferStatus('error')
+      switch (result.reason) {
+        case 'acknowledgement_size_mismatch':
+          setTransferMessage('Windows returned an acknowledgement with the wrong size.')
+          break
+        case 'connection_closed':
+          setTransferMessage('The connection closed before Windows acknowledged the transfer.')
+          break
+        case 'invalid_response':
+          setTransferMessage('Windows returned an invalid response.')
+          break
+        case 'remote_error':
+          setTransferMessage(result.remoteMessage ?? 'Windows rejected the transfer.')
+          break
+        case 'timeout':
+          setTransferMessage('Windows did not acknowledge the clipboard write in time.')
+          break
+      }
     }
 
+    const sender = new TextTransferSender(
+      (message) => connection.sendData(message),
+      handleTransferResult,
+    )
+    transferSender.current = sender
     const unsubscribeState = connection.subscribe((state) => {
       setConnectionState(state)
       setConnectionError(connection.error ?? '')
-      if (state !== 'connected' && pendingTransfer.current) {
-        finishTransfer('error', 'The connection closed before Windows acknowledged the transfer.')
-      }
+      if (state !== 'connected') sender.connectionClosed()
     })
-    const unsubscribeMessages = connection.subscribeMessages((raw) => {
-      const pending = pendingTransfer.current
-      if (!pending) return
-      const decoded = decodeProtocolMessage(raw)
-      if (!decoded.ok) {
-        finishTransfer('error', 'Windows returned an invalid response.')
-        return
-      }
-      const message = decoded.message
-      if (message.kind === 'CLIPBOARD_ACK' && message.transferId === pending.transferId) {
-        if (message.byteLength !== pending.byteLength) {
-          finishTransfer('error', 'Windows returned an acknowledgement with the wrong size.')
-          return
-        }
-        finishTransfer('success', `Windows clipboard updated (${message.byteLength.toLocaleString()} bytes).`)
-      } else if (
-        message.kind === 'ERROR' &&
-        (message.transferId === undefined || message.transferId === pending.transferId)
-      ) {
-        finishTransfer('error', message.message)
-      }
-    })
+    const unsubscribeMessages = connection.subscribeMessages((raw) => sender.handleMessage(raw))
 
     return () => {
       unsubscribeState()
       unsubscribeMessages()
-      if (pendingTransfer.current) clearTimeout(pendingTransfer.current.timeout)
+      sender.dispose()
+      if (transferSender.current === sender) transferSender.current = null
     }
   }, [])
 
@@ -166,20 +162,11 @@ function App() {
 
   function handleSendClipboard() {
     try {
-      const transfer = createTextTransferMessage(crypto.randomUUID(), clipboardText)
-      const byteLength = transfer.payload.representations[0].byteLength
       setTransferStatus('sending')
       setTransferMessage('Waiting for Windows to update its clipboard...')
-      const timeout = setTimeout(() => {
-        pendingTransfer.current = null
-        setTransferStatus('error')
-        setTransferMessage('Windows did not acknowledge the clipboard write in time.')
-      }, 10_000)
-      pendingTransfer.current = { transferId: transfer.transferId, byteLength, timeout }
-      connection.sendData(encodeProtocolMessage(transfer))
+      if (!transferSender.current) throw new Error('The transfer service is not ready.')
+      transferSender.current.sendText(clipboardText)
     } catch (error) {
-      if (pendingTransfer.current) clearTimeout(pendingTransfer.current.timeout)
-      pendingTransfer.current = null
       setTransferStatus('error')
       setTransferMessage(error instanceof Error ? error.message : 'The transfer could not be sent.')
     }
@@ -199,7 +186,7 @@ function App() {
             type="button"
             className="primary-button"
             onClick={handleReadClipboard}
-            disabled={status === 'reading'}
+            disabled={status === 'reading' || transferStatus === 'sending'}
           >
             {status === 'reading' ? 'Reading…' : 'Read clipboard'}
           </button>
@@ -208,7 +195,10 @@ function App() {
             type="button"
             className="secondary-button"
             onClick={handleClearPreview}
-            disabled={clipboardText.length === 0 && status === 'idle'}
+            disabled={
+              transferStatus === 'sending' ||
+              (clipboardText.length === 0 && status === 'idle')
+            }
           >
             Clear text
           </button>
@@ -227,6 +217,7 @@ function App() {
             placeholder="Type text here or use Read clipboard"
             rows={6}
             maxLength={1024 * 1024}
+            disabled={transferStatus === 'sending'}
           />
         </section>
 
