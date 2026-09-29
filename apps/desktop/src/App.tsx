@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
-import {
-  decodeProtocolMessage,
-  encodeProtocolMessage,
-  type ClipboardAckMessage,
-  type ErrorMessage,
-  type ProtocolErrorCode,
-  type ProtocolMessage,
-} from '@copyrade/protocol'
+import { handleIncomingTextTransfer } from '@copyrade/transfer'
 import './App.css'
 
 const connection = new DevelopmentConnection()
@@ -27,90 +20,30 @@ function App() {
   )
 
   useEffect(() => {
-    function sendProtocolMessage(message: ProtocolMessage): boolean {
-      try {
-        connection.sendData(encodeProtocolMessage(message))
-        return true
-      } catch {
-        return false
-      }
-    }
-
     const unsubscribeState = connection.subscribe((state) => {
       setConnectionState(state)
       setConnectionError(connection.error ?? '')
     })
     const unsubscribeMessages = connection.subscribeMessages((raw) => {
       void (async () => {
-        const decoded = decodeProtocolMessage(raw)
-        if (!decoded.ok || decoded.message.kind !== 'CLIPBOARD_TRANSFER') {
-          const error: ErrorMessage = {
-            protocolVersion: 1,
-            kind: 'ERROR',
-            code: 'INVALID_MESSAGE',
-            message: 'Windows rejected an invalid transfer message.',
-          }
-          if (!sendProtocolMessage(error)) {
-            setStatus('error')
-            setStatusMessage('An invalid transfer was received and could not be reported.')
-          }
-          return
-        }
+        const result = await handleIncomingTextTransfer(raw, {
+          writeText: (text) => window.copyrade.clipboard.writeText(text),
+          send: (message) => connection.sendData(message),
+          onWriteStart: () => {
+            setStatus('writing')
+            setStatusMessage('Writing received text to the Windows clipboard...')
+          },
+        })
 
-        const transfer = decoded.message
-        const representation = transfer.payload.representations[0]
-        setStatus('writing')
-        setStatusMessage('Writing received text to the Windows clipboard...')
-
-        let result
-        try {
-          result = await window.copyrade.clipboard.writeText(representation.text)
-        } catch {
-          const error: ErrorMessage = {
-            protocolVersion: 1,
-            kind: 'ERROR',
-            transferId: transfer.transferId,
-            code: 'CLIPBOARD_WRITE_FAILED',
-            message: 'Windows could not update its clipboard.',
-          }
-          sendProtocolMessage(error)
+        if (result.ok) {
+          setStatus('success')
+          setStatusMessage(
+            `Received clipboard write acknowledged (${result.byteLength.toLocaleString()} bytes).`,
+          )
+        } else {
           setStatus('error')
-          setStatusMessage('The desktop bridge did not complete the received clipboard write.')
-          return
+          setStatusMessage(result.message)
         }
-
-        if (!result.ok) {
-          const code: ProtocolErrorCode = result.error.code === 'PAYLOAD_TOO_LARGE'
-            ? 'PAYLOAD_TOO_LARGE'
-            : 'CLIPBOARD_WRITE_FAILED'
-          const error: ErrorMessage = {
-            protocolVersion: 1,
-            kind: 'ERROR',
-            transferId: transfer.transferId,
-            code,
-            message: 'Windows could not update its clipboard.',
-          }
-          sendProtocolMessage(error)
-          setStatus('error')
-          setStatusMessage(result.error.message)
-          return
-        }
-
-        const acknowledgement: ClipboardAckMessage = {
-          protocolVersion: 1,
-          kind: 'CLIPBOARD_ACK',
-          transferId: transfer.transferId,
-          byteLength: result.byteLength,
-        }
-        if (!sendProtocolMessage(acknowledgement)) {
-          setStatus('error')
-          setStatusMessage('Windows updated the clipboard, but confirmation could not be sent.')
-          return
-        }
-        setStatus('success')
-        setStatusMessage(
-          `Received clipboard write acknowledged (${result.byteLength.toLocaleString()} bytes).`,
-        )
       })()
     })
 

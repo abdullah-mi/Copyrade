@@ -4,6 +4,7 @@ type Signal = { type: 'offer' | 'answer' | 'candidate'; data: RTCSessionDescript
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.cloudflare.com:3478' }]
 const MOBILE_CONNECTION_TIMEOUT_MS = 15_000
+const DISCONNECTION_GRACE_PERIOD_MS = 5_000
 const textEncoder = new TextEncoder()
 
 export class DevelopmentConnection {
@@ -14,6 +15,7 @@ export class DevelopmentConnection {
   private listeners = new Set<(state: ConnectionState) => void>()
   private messageListeners = new Set<(message: unknown) => void>()
   private connectionTimeout: ReturnType<typeof setTimeout> | null = null
+  private disconnectionTimeout: ReturnType<typeof setTimeout> | null = null
   state: ConnectionState = 'disconnected'
   error: string | null = null
 
@@ -38,8 +40,14 @@ export class DevelopmentConnection {
     this.connectionTimeout = null
   }
 
+  private clearDisconnectionTimeout(): void {
+    if (this.disconnectionTimeout !== null) clearTimeout(this.disconnectionTimeout)
+    this.disconnectionTimeout = null
+  }
+
   private closeResources(): void {
     this.clearConnectionTimeout()
+    this.clearDisconnectionTimeout()
     const socket = this.socket
     const channel = this.channel
     const peer = this.peer
@@ -48,14 +56,25 @@ export class DevelopmentConnection {
     this.peer = null
     this.pendingCandidates = []
     if (socket) {
+      socket.onopen = null
       socket.onclose = null
+      socket.onerror = null
+      socket.onmessage = null
       socket.close()
     }
     if (channel) {
+      channel.onopen = null
       channel.onclose = null
+      channel.onerror = null
+      channel.onmessage = null
       channel.close()
     }
-    peer?.close()
+    if (peer) {
+      peer.onicecandidate = null
+      peer.onconnectionstatechange = null
+      peer.ondatachannel = null
+      peer.close()
+    }
   }
 
   private fail(message: string): void {
@@ -70,22 +89,31 @@ export class DevelopmentConnection {
     }
   }
 
-  private attachChannel(channel: RTCDataChannel): void {
+  private attachChannel(channel: RTCDataChannel, peer: RTCPeerConnection): void {
+    if (this.peer !== peer) {
+      channel.close()
+      return
+    }
     this.channel = channel
     channel.onopen = () => {
-      if (this.channel === channel) {
+      if (this.channel === channel && this.peer === peer) {
         this.clearConnectionTimeout()
+        this.clearDisconnectionTimeout()
         this.update('connected')
       }
     }
     channel.onclose = () => {
-      if (this.channel === channel && this.state !== 'failed') this.update('disconnected')
+      if (this.channel === channel && this.peer === peer && this.state !== 'failed') {
+        this.disconnect()
+      }
     }
     channel.onerror = () => {
-      if (this.channel === channel) this.fail('The peer connection failed.')
+      if (this.channel === channel && this.peer === peer) {
+        this.fail('The peer connection failed.')
+      }
     }
     channel.onmessage = (event) => {
-      if (this.channel !== channel) return
+      if (this.channel !== channel || this.peer !== peer) return
       for (const listener of this.messageListeners) listener(event.data)
     }
   }
@@ -121,27 +149,47 @@ export class DevelopmentConnection {
       }, MOBILE_CONNECTION_TIMEOUT_MS)
     }
     peer.onicecandidate = ({ candidate }) => {
-      if (candidate) this.send({ type: 'candidate', data: candidate.toJSON() })
+      if (this.peer === peer && candidate) {
+        this.send({ type: 'candidate', data: candidate.toJSON() })
+      }
     }
     peer.onconnectionstatechange = () => {
       if (this.peer !== peer) return
-      if (peer.connectionState === 'failed') this.fail('The peer connection failed.')
-      if (peer.connectionState === 'disconnected' && this.state !== 'failed') {
-        this.update('disconnected')
+      if (peer.connectionState === 'connected') {
+        this.clearDisconnectionTimeout()
+      } else if (peer.connectionState === 'failed') {
+        this.fail('The peer connection failed.')
+      } else if (
+        peer.connectionState === 'disconnected' &&
+        this.state !== 'failed' &&
+        this.disconnectionTimeout === null
+      ) {
+        this.disconnectionTimeout = setTimeout(() => {
+          this.disconnectionTimeout = null
+          if (this.peer === peer && peer.connectionState === 'disconnected') {
+            this.fail('The peer connection was lost.')
+          }
+        }, DISCONNECTION_GRACE_PERIOD_MS)
       }
     }
-    peer.ondatachannel = ({ channel }) => this.attachChannel(channel)
-    socket.onopen = () => socket.send(JSON.stringify({ type: 'join', code, role }))
+    peer.ondatachannel = ({ channel }) => this.attachChannel(channel, peer)
+    socket.onopen = () => {
+      if (this.socket === socket) {
+        socket.send(JSON.stringify({ type: 'join', code, role }))
+      }
+    }
     socket.onclose = (event) => {
       if (this.socket === socket) {
         if (event.code === 1000) this.disconnect()
         else this.fail('The signaling connection closed unexpectedly.')
       }
     }
-    socket.onerror = () => this.fail('The signaling connection failed.')
+    socket.onerror = () => {
+      if (this.socket === socket) this.fail('The signaling connection failed.')
+    }
     socket.onmessage = (event) => {
       void this.handleMessage(event.data, role, peer).catch(() => {
-        this.fail('Connection negotiation failed.')
+        if (this.peer === peer) this.fail('Connection negotiation failed.')
       })
     }
   }
@@ -157,7 +205,7 @@ export class DevelopmentConnection {
     if (message.type === 'ready') {
       this.update('connecting')
       if (role === 'mobile') {
-        this.attachChannel(peer.createDataChannel('copyrade-diagnostic'))
+        this.attachChannel(peer.createDataChannel('copyrade-diagnostic'), peer)
         await peer.setLocalDescription(await peer.createOffer())
         this.send({ type: 'offer', data: peer.localDescription!.toJSON() })
       }

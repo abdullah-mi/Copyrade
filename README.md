@@ -38,6 +38,7 @@ Copyrade is designed around a simpler model:
 | Versioned text transfer protocol | Complete |
 | Development signaling and WebRTC DataChannel spike | Connected in one iPhone-to-Windows cross-network test; unauthenticated |
 | WebRTC text transfer and delivery acknowledgement | Complete for the unauthenticated development slice |
+| Transfer coordination and failure-path tests | Complete for the text slice |
 | Accounts and registered-device discovery | Planned |
 | Chunked image transfer | Planned |
 | Windows packaging and public alpha | Planned |
@@ -47,7 +48,7 @@ The current mobile prototype includes:
 - user-initiated clipboard reading;
 - secure-context and browser-capability detection;
 - loading, success, empty, and error states;
-- an in-memory clipboard preview and clear action;
+- an editable, memory-only text field and clear action;
 - responsive, keyboard-accessible UI;
 - ESLint and TypeScript validation with a reproducible Vite build.
 
@@ -70,7 +71,8 @@ phone. This development flow still uses an unauthenticated session code and
 synthetic data.
 
 The initial text-transfer message contract is documented in
-[`docs/protocol.md`](docs/protocol.md).
+[`docs/protocol.md`](docs/protocol.md). Recorded test environments and remaining
+coverage are tracked in [`docs/compatibility.md`](docs/compatibility.md).
 
 ## Architecture
 
@@ -97,12 +99,12 @@ The Windows application will isolate privileged clipboard access inside Electron
 
 | Area | Technology |
 |---|---|
-| Mobile client | React, TypeScript, Vite, PWA |
+| Mobile client | React, TypeScript, Vite; PWA packaging planned |
 | Windows client | Electron, React, TypeScript |
 | Peer-to-peer transport | WebRTC DataChannel |
 | Device coordination | Authenticated WebSocket signaling |
 | Shared protocol | Versioned, runtime-validated TypeScript messages |
-| Planned hosting | Cloudflare Pages, Workers, Durable Objects, and D1 |
+| Hosting candidate | Cloudflare Pages, Workers, Durable Objects, and D1 |
 | Distribution | GitHub Releases |
 
 The desktop, signaling, protocol, and hosting choices will be validated through working prototypes before the public alpha.
@@ -117,7 +119,8 @@ copyrade/
 |   `-- signal/          # Local development-only signaling
 |-- packages/
 |   |-- connection/      # Shared browser WebRTC connection service
-|   `-- protocol/        # Versioned, runtime-validated transfer messages
+|   |-- protocol/        # Versioned, runtime-validated transfer messages
+|   `-- transfer/        # Framework-neutral transfer and ACK coordination
 |-- package-lock.json    # Single reproducible dependency lockfile
 |-- package.json         # npm workspace commands
 |-- .gitignore
@@ -137,16 +140,17 @@ plane and broader architecture/security documentation remain future work.
 
 The current prototype has been tested with Node.js `24.20.0` and npm `11.19.0`.
 
-From the repository root, install dependencies and build the shared connection
-package before starting either app on a fresh checkout:
+From the repository root, install dependencies and build the shared packages
+before starting either app directly on a fresh checkout:
 
 ```bash
 npm ci
-npm run build --workspace @copyrade/connection
+npm run build:shared
 ```
 
-The apps import `@copyrade/connection` from its generated `dist/` files. `npm ci`
-does not build them; rerun the build command after changing that package.
+The apps import the shared packages from generated `dist/` files. `npm ci` does
+not build them; rerun `npm run build:shared` after changing shared code. The
+combined development command below performs this build automatically.
 
 ### Run the mobile client
 
@@ -189,11 +193,11 @@ npm run check
 
 ## Roadmap
 
-1. Establish direct WebRTC text transfer with delivery acknowledgements.
+1. Finish the reliable, documented text alpha and compatibility checks.
 2. Add accounts, device registration, presence, and authenticated signaling.
-3. Validate image clipboard behavior and add bounded, chunked PNG transfer.
-4. Harden reconnection, tray operation, validation, packaging, and compatibility.
-5. Publish the first documented Windows alpha.
+3. Add persistent receiver and reconnect behavior.
+4. Validate image clipboard behavior and add bounded, chunked PNG transfer.
+5. Harden packaging and publish the first documented Windows alpha.
 
 ## Contributing
 

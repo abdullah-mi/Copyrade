@@ -11,9 +11,10 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @copyrade/connection && npm run build --workspace @copyrade/protocol && npm run build --workspace @copyrade/signal && npm run build --workspace @copyrade/mobile && npm run build --workspace @copyrade/desktop",
+    "build": "npm run build:shared && npm run build --workspace @copyrade/signal && npm run build --workspace @copyrade/mobile && npm run build --workspace @copyrade/desktop",
+    "build:shared": "npm run build --workspace @copyrade/protocol && npm run build --workspace @copyrade/connection && npm run build --workspace @copyrade/transfer",
     "check": "npm run lint && npm test && npm run build",
-    "dev:connection": "npm run build --workspace @copyrade/connection && npm run build --workspace @copyrade/protocol && concurrently --kill-others --names signal,mobile,desktop \"npm run dev --workspace @copyrade/signal\" \"npm run dev --workspace @copyrade/mobile\" \"npm start --workspace @copyrade/desktop\"",
+    "dev:connection": "npm run build:shared && concurrently --kill-others --names signal,mobile,desktop \"npm run dev --workspace @copyrade/signal\" \"npm run dev --workspace @copyrade/mobile\" \"npm start --workspace @copyrade/desktop\"",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },
