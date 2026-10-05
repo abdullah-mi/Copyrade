@@ -1,0 +1,30 @@
+{
+  "name": "@copyrade/control",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:migrations:list": "wrangler d1 migrations list DB --remote",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --port 8788",
+    "lint": "eslint .",
+    "test": "npm run build && node --test --test-isolation=none dist/auth-config.test.js dist/router.test.js"
+  },
+  "dependencies": {
+    "better-auth": "1.7.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260929.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "eslint": "^10.9.0",
+    "globals": "^17.11.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.67.0",
+    "undici": "7.29.1",
+    "wrangler": "4.143.0"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "copyrade-staging",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "BETTER_AUTH_URL": "https://copyrade-staging.abdullahijaz-m.workers.dev"
+  },
+  "assets": {
+    "directory": "../mobile/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/signal"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "copyrade-staging",
+      "database_id": "a1923325-621f-4d0e-b27f-3857c09233a9",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ACCOUNT_COORDINATOR",
+        "class_name": "AccountCoordinator"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["AccountCoordinator"]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

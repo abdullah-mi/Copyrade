@@ -4,7 +4,7 @@
 
 Copyrade is a mobile-to-Windows clipboard application designed to make moving text and images between personal devices fast and effortless. Copy content on a phone, send it to a registered computer, and paste it immediately in Windows—without using email, messaging apps, or cloud clipboard storage.
 
-> **Status:** Early development. A development-only iPhone-to-Windows text transfer has been validated end to end: WebRTC delivery, protected Electron IPC, native clipboard write, and a matching delivery acknowledgement. Device authentication is not yet implemented.
+> **Status:** Early development. The iPhone-to-Windows text-transfer path has been validated end to end, and the staging web app now supports persistent Google and GitHub sign-in. Device registration and authenticated signaling are the next implementation milestone.
 
 ## How it will work
 
@@ -39,7 +39,10 @@ Copyrade is designed around a simpler model:
 | Development signaling and WebRTC DataChannel spike | Connected in one iPhone-to-Windows cross-network test; unauthenticated |
 | WebRTC text transfer and delivery acknowledgement | Complete for the unauthenticated development slice |
 | Transfer coordination and failure-path tests | Complete for the text slice |
-| Accounts and registered-device discovery | Planned |
+| Cloudflare control-plane foundation | Deployed to staging |
+| Google/GitHub authentication backend | Complete for staging |
+| Account-gated mobile flow | Complete for staging |
+| Registered-device discovery | Designed; implementation next |
 | Chunked image transfer | Planned |
 | Windows packaging and public alpha | Planned |
 
@@ -69,6 +72,11 @@ can travel over the WebRTC DataChannel, update the Windows clipboard through the
 validated Electron boundary, and produce a matching acknowledgement on the
 phone. This development flow still uses an unauthenticated session code and
 synthetic data.
+
+The hosted staging app provides Google and GitHub sign-in, links identities only
+when the providers return the same verified email address, and restores an
+active session when the user returns. Authentication currently gates the web
+interface; it does not yet authorize the desktop receiver or WebRTC signaling.
 
 The initial text-transfer message contract is documented in
 [`docs/protocol.md`](docs/protocol.md). Recorded test environments and remaining
@@ -104,7 +112,7 @@ The Windows application will isolate privileged clipboard access inside Electron
 | Peer-to-peer transport | WebRTC DataChannel |
 | Device coordination | Authenticated WebSocket signaling |
 | Shared protocol | Versioned, runtime-validated TypeScript messages |
-| Hosting candidate | Cloudflare Pages, Workers, Durable Objects, and D1 |
+| Hosting | Cloudflare Workers Static Assets, Workers, Durable Objects, and D1 |
 | Distribution | GitHub Releases |
 
 The desktop, signaling, protocol, and hosting choices will be validated through working prototypes before the public alpha.
@@ -114,6 +122,7 @@ The desktop, signaling, protocol, and hosting choices will be validated through 
 ```text
 copyrade/
 |-- apps/
+|   |-- control/         # Cloudflare-hosted API and mobile web assets
 |   |-- desktop/         # Electron clipboard-write diagnostic
 |   |-- mobile/          # React clipboard-read diagnostic
 |   `-- signal/          # Local development-only signaling
@@ -128,8 +137,10 @@ copyrade/
 ```
 
 The local signaling spike is documented in
-[`docs/connection-spike.md`](docs/connection-spike.md). A production control
-plane and broader architecture/security documentation remain future work.
+[`docs/connection-spike.md`](docs/connection-spike.md). The selected production
+design and its trust boundaries are documented in
+[`docs/architecture.md`](docs/architecture.md) and
+[`docs/security.md`](docs/security.md).
 
 ## Getting started
 
@@ -176,6 +187,18 @@ The command labels output from each process and stops the other processes when
 one exits. Cross-device testing still requires an HTTPS route to Vite; see the
 connection-spike guide. This mode is unauthenticated and must use synthetic data.
 
+### Run the control-plane foundation
+
+```bash
+npm run dev:control
+```
+
+This builds the mobile assets once, then starts the Cloudflare Worker locally on
+port `8788` and Vite on port `5173`. Vite proxies `/api` requests to the local
+Worker. Before using local sign-in for the first time, create a private
+`apps/control/.dev.vars` file and apply the local D1 migration as described in
+[`apps/control/README.md`](apps/control/README.md).
+
 ### Run the desktop diagnostic
 
 ```bash
@@ -194,7 +217,7 @@ npm run check
 ## Roadmap
 
 1. Finish the reliable, documented text alpha and compatibility checks.
-2. Add accounts, device registration, presence, and authenticated signaling.
+2. Add device registration, presence, and authenticated signaling to the account system.
 3. Add persistent receiver and reconnect behavior.
 4. Validate image clipboard behavior and add bounded, chunked PNG transfer.
 5. Harden packaging and publish the first documented Windows alpha.

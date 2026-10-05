@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
 import { TextTransferSender, type OutgoingTransferResult } from '@copyrade/transfer'
+import { authClient } from './auth-client'
 import './App.css'
 
 const connection = new DevelopmentConnection()
@@ -8,6 +9,31 @@ const SESSION_CODE_KEY = 'copyrade.developmentSessionCode'
 
 type ClipboardStatus = 'idle' | 'reading' | 'success' | 'error'
 type TransferStatus = 'idle' | 'sending' | 'success' | 'error'
+type AuthStatus = 'idle' | 'signing-in' | 'signing-out'
+type SocialProvider = 'github' | 'google'
+type AuthSession = {
+  user: {
+    email: string
+  }
+}
+
+function getAuthCallbackMessage(): string {
+  const error = new URL(location.href).searchParams.get('error')
+
+  switch (error) {
+    case 'account_not_linked':
+      return 'That identity is not linked to this Copyrade account. Sign in with the original method, then link it from account settings.'
+    case 'email_not_found':
+    case 'email_is_missing':
+      return 'The provider did not supply an email address. Check its email-sharing permission and try again.'
+    case 'email_not_verified':
+      return 'Copyrade requires a verified email address from the sign-in provider.'
+    case null:
+      return ''
+    default:
+      return 'Sign-in did not complete. Try again.'
+  }
+}
 
 function getClipboardErrorMessage(error: unknown): string {
   if (error instanceof DOMException && error.name === 'NotAllowedError') {
@@ -26,6 +52,10 @@ function restoreSessionCode(): string {
 }
 
 function App() {
+  const [session, setSession] = useState<AuthSession | null>(null)
+  const [isSessionPending, setIsSessionPending] = useState(true)
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('idle')
+  const [authMessage, setAuthMessage] = useState(getAuthCallbackMessage)
   const [sessionCode, setSessionCode] = useState(restoreSessionCode)
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
   const [connectionError, setConnectionError] = useState('')
@@ -39,6 +69,56 @@ function App() {
     'Connect to Windows and read clipboard text before sending.',
   )
   const transferSender = useRef<TextTransferSender | null>(null)
+
+  useEffect(() => {
+    let disposed = false
+
+    void authClient
+      .getSession()
+      .then((result) => {
+        if (disposed) return
+        if (result.error) {
+          setAuthMessage((message) =>
+            message || 'Copyrade could not check the current session.',
+          )
+          return
+        }
+
+        setSession(result.data)
+      })
+      .catch(() => {
+        if (!disposed) {
+          setAuthMessage((message) =>
+            message || 'Copyrade could not check the current session.',
+          )
+        }
+      })
+      .finally(() => {
+        if (!disposed) setIsSessionPending(false)
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const url = new URL(location.href)
+    if (!url.searchParams.has('error')) return
+
+    url.searchParams.delete('error')
+    url.searchParams.delete('error_description')
+    history.replaceState(history.state, '', url)
+  }, [])
+
+  useEffect(() => {
+    if (isSessionPending) return
+
+    const destination = session ? '/app' : '/login'
+    if (location.pathname !== destination) {
+      history.replaceState(history.state, '', destination)
+    }
+  }, [isSessionPending, session])
 
   useEffect(() => {
     function handleTransferResult(result: OutgoingTransferResult) {
@@ -172,6 +252,96 @@ function App() {
     }
   }
 
+  async function handleSignIn(provider: SocialProvider) {
+    setAuthStatus('signing-in')
+    setAuthMessage('')
+
+    try {
+      const result = await authClient.signIn.social({
+        provider,
+        callbackURL: '/app',
+      })
+
+      if (result.error) {
+        setAuthStatus('idle')
+        setAuthMessage('Sign-in could not be started. Try again.')
+      }
+    } catch {
+      setAuthStatus('idle')
+      setAuthMessage('Sign-in could not be started. Try again.')
+    }
+  }
+
+  async function handleSignOut() {
+    setAuthStatus('signing-out')
+    setAuthMessage('')
+
+    try {
+      const result = await authClient.signOut()
+      if (result.error) {
+        setAuthStatus('idle')
+        setAuthMessage('Sign-out did not complete. Try again.')
+        return
+      }
+
+      location.assign('/login')
+    } catch {
+      setAuthStatus('idle')
+      setAuthMessage('Sign-out did not complete. Try again.')
+    }
+  }
+
+  if (isSessionPending) {
+    return (
+      <main className="app-shell">
+        <section className="clipboard-card" aria-labelledby="page-title">
+          <header>
+            <h1 id="page-title">Copyrade</h1>
+          </header>
+          <p role="status">Checking sign-in status...</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (!session) {
+    return (
+      <main className="app-shell">
+        <section className="clipboard-card" aria-labelledby="page-title">
+          <header>
+            <h1 id="page-title">Copyrade</h1>
+          </header>
+          <section className="account" aria-labelledby="account-title">
+            <h2 id="account-title">Sign in</h2>
+            <p>Sign in to access and register your devices.</p>
+            <div className="account-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void handleSignIn('google')}
+                disabled={authStatus !== 'idle'}
+              >
+                Continue with Google
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void handleSignIn('github')}
+                disabled={authStatus !== 'idle'}
+              >
+                Continue with GitHub
+              </button>
+            </div>
+            {authStatus === 'signing-in' && (
+              <p role="status">Opening the sign-in provider...</p>
+            )}
+            {authMessage && <p role="alert">{authMessage}</p>}
+          </section>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="app-shell">
       <section className="clipboard-card" aria-labelledby="page-title">
@@ -180,6 +350,26 @@ function App() {
           <h1 id="page-title">Copyrade</h1>
           <p className="tagline">Your clipboard comrade.</p>
         </header>
+
+        <section className="account" aria-labelledby="account-title">
+          <h2 id="account-title">Account</h2>
+          <p>
+            Signed in as <strong>{session.user.email}</strong>
+          </p>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => void handleSignOut()}
+            disabled={authStatus !== 'idle'}
+          >
+            {authStatus === 'signing-out' ? 'Signing out...' : 'Sign out'}
+          </button>
+          {authMessage && <p role="alert">{authMessage}</p>}
+          <p className="account-note">
+            Account sign-in is active. Device authorization is the next
+            milestone; the development connection below is still unauthenticated.
+          </p>
+        </section>
 
         <div className="actions">
           <button
