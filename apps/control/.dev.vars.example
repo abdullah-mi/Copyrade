@@ -1,0 +1,6 @@
+BETTER_AUTH_SECRET=replace-with-a-random-development-secret
+BETTER_AUTH_URL=http://127.0.0.1:5173
+GITHUB_CLIENT_ID=replace-with-local-github-client-id
+GITHUB_CLIENT_SECRET=replace-with-local-github-client-secret
+GOOGLE_CLIENT_ID=replace-with-local-google-client-id
+GOOGLE_CLIENT_SECRET=replace-with-local-google-client-secret
