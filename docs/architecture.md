@@ -101,3 +101,16 @@ authenticated replacement is proven.
 
 This flow passed its real-device staging gate with authenticated text delivery,
 native Windows clipboard acknowledgement, disconnect, and device revocation.
+
+## Persistent receiver presence
+
+An enrolled Electron receiver obtains a short-lived presence ticket with its
+protected device credential, then keeps a separate account-scoped WebSocket
+open. This socket carries only receiver availability and connection requests;
+WebRTC negotiation continues to use a fresh, single-use signaling ticket.
+
+Signed-in web clients subscribe as account observers. Presence changes cause
+the client to refetch its authorized device list, allowing online/offline state
+and newly enrolled devices to update without polling D1. Selecting an online
+device sends an authenticated connection request to that receiver and returns
+the mobile signaling ticket needed for the resulting WebRTC negotiation.

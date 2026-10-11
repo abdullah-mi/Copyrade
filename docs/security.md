@@ -103,5 +103,12 @@ taking over an existing account.
 These controls are covered by focused validation tests and passed the
 authenticated iPhone-to-Windows staging test.
 
+Presence uses a separate short-lived ticket and WebSocket protocol. Desktop
+presence identifies only the account and registered device; browser observers
+receive only the set of online device IDs and must refetch the account-gated
+device list for display data. A connection request succeeds only when the
+selected device is both owned by the signed-in account and currently online.
+No clipboard payload, SDP, or ICE candidate is sent over the presence channel.
+
 This document describes intended guarantees. Features that are not implemented
 must remain labelled as planned in public documentation and UI.

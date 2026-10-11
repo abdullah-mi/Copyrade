@@ -14,6 +14,7 @@ const DEVICE_STATUS_CHANNEL = 'device:status'
 const DEVICE_ENROLL_START_CHANNEL = 'device:enroll-start'
 const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
 const DEVICE_SIGNAL_TICKET_CHANNEL = 'device:signal-ticket'
+const DEVICE_PRESENCE_TICKET_CHANNEL = 'device:presence-ticket'
 
 let mainWindow: BrowserWindow | null = null
 const deviceEnrollment = new DeviceEnrollmentManager()
@@ -111,8 +112,26 @@ ipcMain.handle(DEVICE_SIGNAL_TICKET_CHANNEL, (event) => {
   }
   return deviceEnrollment.signalingTicket()
 })
+ipcMain.handle(DEVICE_PRESENCE_TICKET_CHANNEL, (event) => {
+  if (!isTrustedSender(event.senderFrame)) {
+    return { ok: false, error: 'The device request was not trusted.' }
+  }
+  return deviceEnrollment.presenceTicket()
+})
 
-app.whenReady().then(() => {
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+if (!hasSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  })
+}
+
+if (hasSingleInstanceLock) app.whenReady().then(() => {
   createWindow()
 
   app.on('activate', () => {

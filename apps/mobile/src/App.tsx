@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
 import { TextTransferSender, type OutgoingTransferResult } from '@copyrade/transfer'
 import { authClient } from './auth-client'
@@ -27,6 +27,7 @@ type RegisteredDevice = {
   platform: 'windows'
   createdAt: number
   lastSeenAt: number | null
+  online: boolean
 }
 type EnrollmentReview = {
   userCode: string
@@ -85,6 +86,14 @@ function App() {
   )
   const transferSender = useRef<TextTransferSender | null>(null)
 
+  const refreshDevices = useCallback(async () => {
+    const response = await fetch('/api/devices')
+    if (!response.ok) throw new Error('Device list failed')
+    const body = (await response.json()) as { devices: RegisteredDevice[] }
+    setDevices(body.devices)
+    setDeviceMessage('')
+  }, [])
+
   useEffect(() => {
     let disposed = false
 
@@ -141,15 +150,11 @@ function App() {
     if (!session) return
     let disposed = false
 
-    void fetch('/api/devices')
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Device list failed')
-        const body = (await response.json()) as { devices: RegisteredDevice[] }
-        if (!disposed) setDevices(body.devices)
-      })
-      .catch(() => {
+    const initialDeviceRefresh = setTimeout(() => {
+      void refreshDevices().catch(() => {
         if (!disposed) setDeviceMessage('Registered devices could not be loaded.')
       })
+    }, 0)
 
     const enrollmentCode = new URL(location.href).searchParams.get('enroll')
     if (enrollmentCode) {
@@ -168,8 +173,66 @@ function App() {
 
     return () => {
       disposed = true
+      clearTimeout(initialDeviceRefresh)
     }
-  }, [session])
+  }, [session, refreshDevices])
+
+  useEffect(() => {
+    if (!session) return
+    let disposed = false
+    let socket: WebSocket | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let retryDelay = 1_000
+
+    const connectPresence = async () => {
+      try {
+        const response = await fetch('/api/presence-ticket', { method: 'POST' })
+        const authorization = (await response.json()) as { ticket?: string }
+        if (!response.ok || !authorization.ticket) throw new Error('Presence unavailable')
+        if (disposed) return
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+        socket = new WebSocket(`${protocol}//${location.host}/api/presence`, [
+          'copyrade-presence-v1',
+          authorization.ticket,
+        ])
+        socket.onmessage = (event) => {
+          if (typeof event.data !== 'string' || event.data.length > 4096) return
+          try {
+            const message: unknown = JSON.parse(event.data)
+            if (
+              message &&
+              typeof message === 'object' &&
+              'type' in message &&
+              message.type === 'presence'
+            ) {
+              retryDelay = 1_000
+              void refreshDevices()
+            }
+          } catch {
+            socket?.close(1008, 'Invalid presence message')
+          }
+        }
+        socket.onclose = () => {
+          if (disposed) return
+          socket = null
+          reconnectTimer = setTimeout(() => void connectPresence(), retryDelay)
+          retryDelay = Math.min(retryDelay * 2, 30_000)
+        }
+        socket.onerror = () => socket?.close()
+      } catch {
+        if (disposed) return
+        reconnectTimer = setTimeout(() => void connectPresence(), retryDelay)
+        retryDelay = Math.min(retryDelay * 2, 30_000)
+      }
+    }
+
+    void connectPresence()
+    return () => {
+      disposed = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      socket?.close(1000, 'Presence stopped')
+    }
+  }, [session, refreshDevices])
 
   useEffect(() => {
     function handleTransferResult(result: OutgoingTransferResult) {
@@ -226,7 +289,7 @@ function App() {
     setConnectionError('')
     setActiveDeviceId(deviceId)
     try {
-      const ticketResponse = await fetch('/api/signal-ticket', {
+      const ticketResponse = await fetch('/api/connection-requests', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ deviceId }),
@@ -239,6 +302,8 @@ function App() {
         throw new Error(
           authorization.error === 'DEVICE_NOT_FOUND'
             ? 'That Windows device is no longer registered.'
+            : authorization.error === 'DEVICE_OFFLINE'
+              ? 'That Windows device is offline.'
             : 'Signaling authorization could not be created.',
         )
       }
@@ -517,13 +582,16 @@ function App() {
             <ul className="device-list">
               {devices.map((device) => (
                 <li key={device.id}>
-                  <span>{device.name}</span>
+                  <span>
+                    {device.name} — {device.online ? 'Online' : 'Offline'}
+                  </span>
                   <div className="device-actions">
                     <button
                       type="button"
                       className="primary-button"
                       onClick={() => void handleConnect(device.id)}
                       disabled={
+                        !device.online ||
                         connectionState === 'signaling' ||
                         connectionState === 'connecting' ||
                         connectionState === 'connected'

@@ -50,6 +50,7 @@ Copyrade is designed around a simpler model:
 | Browser-approved Windows device enrollment | Complete for staging |
 | Registered-device discovery | Complete for staging |
 | Account-scoped authenticated signaling | Validated on staging |
+| Persistent receiver presence and automatic connection requests | Validated on staging |
 | Chunked image transfer | Planned |
 | Windows packaging and public alpha | Planned |
 
@@ -226,8 +227,8 @@ npm run check
 ## Roadmap
 
 1. Finish the reliable, documented text alpha and compatibility checks.
-2. Add persistent receiver presence, online/offline status, and automatic connection requests.
-3. Add reconnect behavior, single-instance desktop handling, and clearer diagnostics.
+2. Harden reconnect behavior and add clearer connection diagnostics across more networks.
+3. Add tray/startup behavior and prepare the persistent Windows receiver for packaging.
 4. Validate image clipboard behavior and add bounded, chunked PNG transfer.
 5. Harden packaging and publish the first documented Windows alpha.
 

@@ -5,6 +5,7 @@ const DEVICE_STATUS_CHANNEL = 'device:status'
 const DEVICE_ENROLL_START_CHANNEL = 'device:enroll-start'
 const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
 const DEVICE_SIGNAL_TICKET_CHANNEL = 'device:signal-ticket'
+const DEVICE_PRESENCE_TICKET_CHANNEL = 'device:presence-ticket'
 
 contextBridge.exposeInMainWorld('copyrade', {
   clipboard: {
@@ -19,5 +20,7 @@ contextBridge.exposeInMainWorld('copyrade', {
       ipcRenderer.invoke(DEVICE_ENROLL_POLL_CHANNEL),
     getSignalingTicket: (): Promise<unknown> =>
       ipcRenderer.invoke(DEVICE_SIGNAL_TICKET_CHANNEL),
+    getPresenceTicket: (): Promise<unknown> =>
+      ipcRenderer.invoke(DEVICE_PRESENCE_TICKET_CHANNEL),
   },
 })

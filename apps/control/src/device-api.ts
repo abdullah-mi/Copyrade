@@ -139,7 +139,25 @@ export async function routeDeviceApiRequest(
   }
 
   if (url.pathname === '/api/devices' && request.method === 'GET') {
-    return jsonResponse({ devices: await service.list(userId) })
+    const devices = await service.list(userId)
+    let onlineDeviceIds = new Set<string>()
+    try {
+      const response = await env.ACCOUNT_COORDINATOR
+        .getByName(userId)
+        .fetch(new Request('https://account-coordinator/online-devices'))
+      if (response.ok) {
+        const body = await response.json<{ deviceIds: string[] }>()
+        onlineDeviceIds = new Set(body.deviceIds)
+      }
+    } catch {
+      // Presence is advisory. Registered devices remain available when it is unavailable.
+    }
+    return jsonResponse({
+      devices: devices.map((device) => ({
+        ...device,
+        online: onlineDeviceIds.has(device.id),
+      })),
+    })
   }
 
   const deviceMatch = url.pathname.match(/^\/api\/devices\/([0-9a-f-]{36})$/i)
