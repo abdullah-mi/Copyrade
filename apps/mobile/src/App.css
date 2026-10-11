@@ -70,6 +70,11 @@ h1 {
   gap: 1rem;
 }
 
+.device-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -11,6 +11,7 @@ not be copied into this document or logs.
 | 2026-09-21 | iPhone Safari | N/A | HTTPS development tunnel | User-initiated text clipboard read succeeded after Safari's native Paste action. | iPhone model and iOS/Safari version |
 | 2026-09-22 | iPhone Safari | Windows Electron development app | Phone at school, PC at home, Tailscale enabled on both | WebRTC DataChannel connected after nullable ICE candidate handling was fixed. | Windows version, Electron version, selected ICE candidate route |
 | 2026-09-28 | iPhone 13 Pro, Safari on iOS 26.4.1 | Windows Electron development app | Temporary HTTPS tunnel to the development environment | Wrong-code timeout and recovery, disconnect/reconnect, editable text input, native Windows clipboard write, and matching ACK succeeded. | Windows version, timings, network route |
+| 2026-10-11 | iPhone 13 Pro, Safari on iOS 26.4.1 | Registered Windows Electron staging receiver | Hosted Cloudflare staging control plane; peer route not recorded | Google/GitHub session flow, device discovery, account-scoped signaling, text delivery, native clipboard write, matching ACK, clean disconnect, and web revocation succeeded. | Windows version, timings, selected ICE route; identify the Safari extension associated with normal-tab instability |
 
 These results prove one development setup, not general browser or network
 compatibility. Tailscale was present during the initial cross-network test, and

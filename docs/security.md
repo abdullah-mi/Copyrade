@@ -80,8 +80,28 @@ taking over an existing account.
   the same Windows user.
 - Removing a device marks it revoked rather than deleting its audit metadata.
   Electron periodically validates its saved credential and removes it after
-  revocation. Authenticated signaling must independently reject revoked
-  credentials before real clipboard data is allowed.
+  revocation.
+
+## Implemented signaling controls
+
+- The browser must have an active account session and may request a ticket only
+  for an active device owned by that account.
+- Electron exchanges its protected device credential for a separate 60-second
+  signaling ticket in the main process. The renderer receives only that
+  short-lived ticket.
+- Tickets are HMAC-authenticated with a signaling-specific secret, passed in a
+  WebSocket subprotocol header rather than a URL, and rejected after their nonce
+  is consumed once.
+- A Durable Object is scoped to the internal account ID and pairs only a mobile
+  and desktop endpoint naming the same registered device ID.
+- Only bounded SDP offers, answers, and ICE candidates are relayed. They are
+  not written to D1 or application logs.
+- Revocation asks the account coordinator to close matching signaling sockets.
+  The desktop's periodic credential validation remains the fallback if that
+  notification fails.
+
+These controls are covered by focused validation tests and passed the
+authenticated iPhone-to-Windows staging test.
 
 This document describes intended guarantees. Features that are not implemented
 must remain labelled as planned in public documentation and UI.

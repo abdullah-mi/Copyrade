@@ -46,12 +46,16 @@ After reviewing the dry-run output, deploy the Worker and mobile assets:
 npm run deploy --workspace @copyrade/control
 ```
 
+The deploy lifecycle rebuilds the mobile production bundle first so Wrangler
+cannot upload stale web assets.
+
 Authentication deployments require this order:
 
 1. Review and apply the committed D1 migrations with
    `npm run db:migrate:remote --workspace @copyrade/control`.
-2. Configure `BETTER_AUTH_SECRET`, `DEVICE_CREDENTIAL_SECRET`, Google
-   credentials, and GitHub credentials with `wrangler secret put`.
+2. Configure `BETTER_AUTH_SECRET`, `DEVICE_CREDENTIAL_SECRET`,
+   `SIGNALING_TICKET_SECRET`, Google credentials, and GitHub credentials with
+   `wrangler secret put`.
 3. Deploy only after the migrations and secrets succeed.
 
 Google's callback URL is
@@ -78,9 +82,11 @@ the returned token with Electron `safeStorage`.
 the renderer. Revoked tokens receive `401`; Electron then deletes its local
 encrypted copy and returns to the registration state.
 
-The first deployment also creates the `AccountCoordinator` Durable Object class.
-The class currently rejects requests because authenticated signaling is the
-next milestone after device-enrollment validation.
+`POST /api/signal-ticket` issues a 60-second, single-use authorization after
+validating either the browser session plus selected device or Electron's device
+credential. `GET /api/signal` upgrades the authorized request and routes it to
+the account-scoped `AccountCoordinator` Durable Object. The object relays only
+bounded SDP and ICE messages; clipboard payloads remain on WebRTC.
 
 Do not place OAuth secrets, session secrets, tokens, clipboard contents, SDP, ICE
 candidates, or device authorization codes in source control or logs.

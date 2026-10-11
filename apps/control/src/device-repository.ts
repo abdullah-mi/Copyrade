@@ -109,6 +109,15 @@ export class D1DeviceRepository implements DeviceRepository {
       .first<DeviceRow>()
   }
 
+  findOwnedDevice(userId: string, deviceId: string): Promise<DeviceRecord | null> {
+    return this.database
+      .prepare(
+        'SELECT * FROM device WHERE userId = ? AND id = ? AND revokedAt IS NULL',
+      )
+      .bind(userId, deviceId)
+      .first<DeviceRow>()
+  }
+
   async listDevices(userId: string): Promise<DeviceRecord[]> {
     const result = await this.database
       .prepare(

@@ -45,7 +45,10 @@ class FakeWebSocket {
   onerror: ((event: Event) => void) | null = null
   onmessage: ((event: MessageEvent) => void) | null = null
 
-  constructor(readonly url: string) {
+  constructor(
+    readonly url: string,
+    readonly protocols?: string | string[],
+  ) {
     FakeWebSocket.instances.push(this)
   }
 
@@ -185,5 +188,19 @@ describe('DevelopmentConnection lifecycle', () => {
     assert.equal(connection.state, 'disconnected')
     assert.equal(socket.closed, true)
     assert.equal(peer.closed, true)
+  })
+
+  it('uses a short-lived ticket as a WebSocket subprotocol without a join message', async () => {
+    const connection = new DevelopmentConnection()
+    const ticket = `cpy.signal.${'a'.repeat(32)}.${'b'.repeat(43)}`
+    await connection.connectAuthenticated(
+      'desktop',
+      ticket,
+      'wss://copyrade.example/api/signal',
+    )
+    const socket = FakeWebSocket.instances[0]
+    assert.deepEqual(socket.protocols, ['copyrade-v1', ticket])
+    socket.open()
+    assert.deepEqual(socket.sent, [])
   })
 })

@@ -5,6 +5,7 @@ type Signal = { type: 'offer' | 'answer' | 'candidate'; data: RTCSessionDescript
 const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.cloudflare.com:3478' }]
 const MOBILE_CONNECTION_TIMEOUT_MS = 15_000
 const DISCONNECTION_GRACE_PERIOD_MS = 5_000
+const FAILURE_GRACE_PERIOD_MS = 1_000
 const textEncoder = new TextEncoder()
 
 export class DevelopmentConnection {
@@ -83,6 +84,14 @@ export class DevelopmentConnection {
     this.update('failed')
   }
 
+  private scheduleFailure(peer: RTCPeerConnection, message: string, delay: number): void {
+    if (this.disconnectionTimeout !== null) return
+    this.disconnectionTimeout = setTimeout(() => {
+      this.disconnectionTimeout = null
+      if (this.peer === peer) this.fail(message)
+    }, delay)
+  }
+
   private send(signal: Signal): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(signal))
@@ -109,7 +118,7 @@ export class DevelopmentConnection {
     }
     channel.onerror = () => {
       if (this.channel === channel && this.peer === peer) {
-        this.fail('The peer connection failed.')
+        this.scheduleFailure(peer, 'The peer connection failed.', FAILURE_GRACE_PERIOD_MS)
       }
     }
     channel.onmessage = (event) => {
@@ -131,20 +140,43 @@ export class DevelopmentConnection {
 
   async connect(role: Role, code: string, url: string): Promise<void> {
     if (!/^[0-9a-f]{32}$/.test(code)) throw new Error('Enter a 32-character session code.')
+    return this.connectWithSocket(role, url, () => new WebSocket(url), (socket) => {
+      socket.send(JSON.stringify({ type: 'join', code, role }))
+    })
+  }
+
+  async connectAuthenticated(role: Role, ticket: string, url: string): Promise<void> {
+    if (!/^cpy\.signal\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(ticket) || ticket.length > 2048) {
+      throw new Error('The signaling authorization is invalid.')
+    }
+    return this.connectWithSocket(
+      role,
+      url,
+      () => new WebSocket(url, ['copyrade-v1', ticket]),
+      () => {},
+    )
+  }
+
+  private async connectWithSocket(
+    role: Role,
+    url: string,
+    createSocket: () => WebSocket,
+    onOpen: (socket: WebSocket) => void,
+  ): Promise<void> {
     if (!url.startsWith('wss://') && !url.startsWith('ws://127.0.0.1:')) {
       throw new Error('Signaling requires WSS or local loopback.')
     }
     this.closeResources()
     this.error = null
     this.update('signaling')
-    const socket = new WebSocket(url)
+    const socket = createSocket()
     const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS })
     this.socket = socket
     this.peer = peer
     if (role === 'mobile') {
       this.connectionTimeout = setTimeout(() => {
         if (this.peer === peer && this.state !== 'connected') {
-          this.fail('No desktop matched that code before the connection timed out.')
+          this.fail('The selected desktop did not connect before the request timed out.')
         }
       }, MOBILE_CONNECTION_TIMEOUT_MS)
     }
@@ -158,24 +190,23 @@ export class DevelopmentConnection {
       if (peer.connectionState === 'connected') {
         this.clearDisconnectionTimeout()
       } else if (peer.connectionState === 'failed') {
-        this.fail('The peer connection failed.')
+        this.scheduleFailure(peer, 'The peer connection failed.', FAILURE_GRACE_PERIOD_MS)
       } else if (
         peer.connectionState === 'disconnected' &&
         this.state !== 'failed' &&
         this.disconnectionTimeout === null
       ) {
-        this.disconnectionTimeout = setTimeout(() => {
-          this.disconnectionTimeout = null
-          if (this.peer === peer && peer.connectionState === 'disconnected') {
-            this.fail('The peer connection was lost.')
-          }
-        }, DISCONNECTION_GRACE_PERIOD_MS)
+        this.scheduleFailure(
+          peer,
+          'The peer connection was lost.',
+          DISCONNECTION_GRACE_PERIOD_MS,
+        )
       }
     }
     peer.ondatachannel = ({ channel }) => this.attachChannel(channel, peer)
     socket.onopen = () => {
       if (this.socket === socket) {
-        socket.send(JSON.stringify({ type: 'join', code, role }))
+        onOpen(socket)
       }
     }
     socket.onclose = (event) => {

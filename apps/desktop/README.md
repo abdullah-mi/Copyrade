@@ -10,6 +10,9 @@ approval, and encrypts the resulting device credential with Electron
 `safeStorage`. The credential is never exposed to the React renderer.
 The main process validates it at startup and periodically while the application
 is open, so account-side revocation clears the local registration state.
+For connections, the main process exchanges that credential for a short-lived
+signaling ticket. Only the ticket is exposed to the renderer; the long-lived
+credential remains behind the preload boundary.
 
 ## Run locally
 

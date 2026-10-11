@@ -67,6 +67,15 @@ class MemoryDeviceRepository implements DeviceRepository {
     ) ?? null
   }
 
+  async findOwnedDevice(userId: string, deviceId: string) {
+    return this.devices.find(
+      (device) =>
+        device.userId === userId &&
+        device.id === deviceId &&
+        device.revokedAt === null,
+    ) ?? null
+  }
+
   async revokeDevice(userId: string, deviceId: string, revokedAt: number) {
     const device = this.devices.find(
       (candidate) =>

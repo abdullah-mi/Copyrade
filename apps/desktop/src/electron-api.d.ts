@@ -21,6 +21,7 @@ interface CopyradeDesktopApi {
     getStatus(): Promise<DeviceEnrollmentStatus>
     startEnrollment(deviceName: string): Promise<DeviceEnrollmentResult>
     pollEnrollment(): Promise<DeviceEnrollmentResult>
+    getSignalingTicket(): Promise<SignalingTicketResult>
   }
 }
 
@@ -54,6 +55,10 @@ type DeviceEnrollmentStatus =
       device: EnrolledDevice
       warning?: string
     }
+
+type SignalingTicketResult =
+  | { ok: true; ticket: string; signalingUrl: string; expiresAt: number }
+  | { ok: false; error: string }
 
 declare global {
   interface Window {

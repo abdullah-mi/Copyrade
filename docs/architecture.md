@@ -77,10 +77,27 @@ proof of identity.
 2. Add Better Auth with Google and GitHub, migrations, session tests, and strict
    verified-email linking.
 3. Add device authorization, encrypted desktop session storage, and revocation.
-4. Replace the development room with authenticated Durable Object signaling.
+4. Validate authenticated Durable Object signaling on staging.
 5. Add reconnect/presence behavior and decide whether TURN is required from
    compatibility evidence.
 
 Each stage remains separately testable and reviewable. The local unauthenticated
 signaling spike stays available for synthetic protocol development until the
 authenticated replacement is proven.
+
+## Authenticated signaling flow
+
+1. The signed-in mobile app selects one of the account's active registered
+   devices and requests a short-lived mobile signaling ticket.
+2. Electron requests a desktop ticket in its main process using the protected
+   device credential. The long-lived credential never enters the renderer.
+3. Each client presents its ticket as a WebSocket subprotocol value. Tickets
+   expire after 60 seconds and their nonces can be consumed only once.
+4. The Worker verifies the ticket and routes both peers to the Durable Object
+   named for the internal account ID. The object matches only opposite roles
+   for the same registered device ID.
+5. The object relays bounded SDP and ICE messages in memory. Clipboard payloads
+   travel only over the resulting WebRTC DataChannel.
+
+This flow passed its real-device staging gate with authenticated text delivery,
+native Windows clipboard acknowledgement, disconnect, and device revocation.
