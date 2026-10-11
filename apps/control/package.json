@@ -8,6 +8,7 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "db:migrations:list": "wrangler d1 migrations list DB --remote",
+    "predeploy": "npm run build --workspace @copyrade/mobile",
     "deploy": "wrangler deploy",
     "dev": "wrangler dev --port 8788",
     "lint": "eslint .",

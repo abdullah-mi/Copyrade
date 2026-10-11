@@ -4,6 +4,7 @@ import { DeviceEnrollmentService } from './device-enrollment.js'
 import { D1DeviceRepository } from './device-repository.js'
 
 export type DeviceApiEnvironment = AuthEnvironment & {
+  ACCOUNT_COORDINATOR: DurableObjectNamespace
   DEVICE_CREDENTIAL_SECRET: string
 }
 
@@ -145,7 +146,19 @@ export async function routeDeviceApiRequest(
   if (deviceMatch && request.method === 'DELETE') {
     if (!hasTrustedOrigin(request, origin)) return errorResponse('INVALID_ORIGIN', 403)
     const revoked = await service.revoke(userId, deviceMatch[1])
-    return revoked ? new Response(null, { status: 204 }) : errorResponse('NOT_FOUND', 404)
+    if (!revoked) return errorResponse('NOT_FOUND', 404)
+    try {
+      const coordinator = env.ACCOUNT_COORDINATOR.getByName(userId)
+      await coordinator.fetch(
+        new Request('https://account-coordinator/revoke', {
+          method: 'POST',
+          headers: { 'x-copyrade-device-id': deviceMatch[1] },
+        }),
+      )
+    } catch {
+      // The D1 revocation remains authoritative; desktop validation is the fallback.
+    }
+    return new Response(null, { status: 204 })
   }
 
   return errorResponse('METHOD_NOT_ALLOWED', 405)

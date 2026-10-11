@@ -40,6 +40,7 @@ export interface DeviceRepository {
   approveEnrollment(id: string, userId: string, approvedAt: number): Promise<boolean>
   consumeEnrollment(record: EnrollmentRecord, device: DeviceRecord, consumedAt: number): Promise<boolean>
   findDeviceByTokenHash(tokenHash: string): Promise<DeviceRecord | null>
+  findOwnedDevice(userId: string, deviceId: string): Promise<DeviceRecord | null>
   listDevices(userId: string): Promise<DeviceRecord[]>
   revokeDevice(userId: string, deviceId: string, revokedAt: number): Promise<boolean>
   pruneEnrollments(before: number): Promise<void>
@@ -261,6 +262,10 @@ export class DeviceEnrollmentService {
     return this.repository.findDeviceByTokenHash(
       await hashSecret('device-token', this.serverSecret, token),
     )
+  }
+
+  findOwnedDevice(userId: string, deviceId: string) {
+    return this.repository.findOwnedDevice(userId, deviceId)
   }
 
   revoke(userId: string, deviceId: string) {

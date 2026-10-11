@@ -61,6 +61,10 @@ export type DeviceEnrollmentStatus =
       error: string
     }
 
+export type SignalingTicketResult =
+  | { ok: true; ticket: string; signalingUrl: string; expiresAt: number }
+  | { ok: false; error: string }
+
 function normalizeControlOrigin(value: string): string {
   const url = new URL(value)
   const isLoopback =
@@ -191,6 +195,39 @@ export class DeviceEnrollmentManager {
         suggestedName,
         error: 'The saved device credential could not be read.',
       }
+    }
+  }
+
+  async signalingTicket(): Promise<SignalingTicketResult> {
+    try {
+      const credential = await this.loadCredential()
+      if (!credential) return { ok: false, error: 'Register this PC first.' }
+      const response = await fetch(`${credential.controlOrigin}/api/signal-ticket`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${credential.token}` },
+      })
+      if (response.status === 401) {
+        await rm(this.credentialPath(), { force: true })
+        return { ok: false, error: 'This device is no longer registered.' }
+      }
+      const body = await readResponseBody(response)
+      if (
+        !response.ok ||
+        typeof body.ticket !== 'string' ||
+        typeof body.expiresAt !== 'number'
+      ) {
+        return { ok: false, error: 'Signaling authorization could not be created.' }
+      }
+      const signalingUrl = new URL('/api/signal', credential.controlOrigin)
+      signalingUrl.protocol = signalingUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+      return {
+        ok: true,
+        ticket: body.ticket,
+        expiresAt: body.expiresAt,
+        signalingUrl: signalingUrl.toString(),
+      }
+    } catch {
+      return { ok: false, error: 'The signaling service could not be reached.' }
     }
   }
 

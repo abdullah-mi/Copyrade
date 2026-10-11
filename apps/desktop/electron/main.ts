@@ -13,6 +13,7 @@ const CLIPBOARD_WRITE_CHANNEL = 'clipboard:write-text'
 const DEVICE_STATUS_CHANNEL = 'device:status'
 const DEVICE_ENROLL_START_CHANNEL = 'device:enroll-start'
 const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
+const DEVICE_SIGNAL_TICKET_CHANNEL = 'device:signal-ticket'
 
 let mainWindow: BrowserWindow | null = null
 const deviceEnrollment = new DeviceEnrollmentManager()
@@ -103,6 +104,12 @@ ipcMain.handle(DEVICE_ENROLL_POLL_CHANNEL, (event) => {
     return { ok: false, error: 'The device request was not trusted.' }
   }
   return deviceEnrollment.poll()
+})
+ipcMain.handle(DEVICE_SIGNAL_TICKET_CHANNEL, (event) => {
+  if (!isTrustedSender(event.senderFrame)) {
+    return { ok: false, error: 'The device request was not trusted.' }
+  }
+  return deviceEnrollment.signalingTicket()
 })
 
 app.whenReady().then(() => {

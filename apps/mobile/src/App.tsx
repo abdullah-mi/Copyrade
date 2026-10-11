@@ -5,12 +5,17 @@ import { authClient } from './auth-client'
 import './App.css'
 
 const connection = new DevelopmentConnection()
-const SESSION_CODE_KEY = 'copyrade.developmentSessionCode'
 
 type ClipboardStatus = 'idle' | 'reading' | 'success' | 'error'
 type TransferStatus = 'idle' | 'sending' | 'success' | 'error'
 type AuthStatus = 'idle' | 'signing-in' | 'signing-out'
 type SocialProvider = 'github' | 'google'
+
+const AUTHORIZATION_HOSTS: Record<SocialProvider, string> = {
+  github: 'github.com',
+  google: 'accounts.google.com',
+}
+
 type AuthSession = {
   user: {
     email: string
@@ -57,14 +62,6 @@ function getClipboardErrorMessage(error: unknown): string {
   return 'Copyrade could not read the clipboard. Your browser may not support this feature.'
 }
 
-function restoreSessionCode(): string {
-  try {
-    return sessionStorage.getItem(SESSION_CODE_KEY) ?? ''
-  } catch {
-    return ''
-  }
-}
-
 function App() {
   const [session, setSession] = useState<AuthSession | null>(null)
   const [isSessionPending, setIsSessionPending] = useState(true)
@@ -74,7 +71,7 @@ function App() {
   const [deviceMessage, setDeviceMessage] = useState('')
   const [enrollmentReview, setEnrollmentReview] = useState<EnrollmentReview | null>(null)
   const [enrollmentMessage, setEnrollmentMessage] = useState('')
-  const [sessionCode, setSessionCode] = useState(restoreSessionCode)
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null)
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
   const [connectionError, setConnectionError] = useState('')
   const [clipboardText, setClipboardText] = useState('')
@@ -212,6 +209,7 @@ function App() {
     const unsubscribeState = connection.subscribe((state) => {
       setConnectionState(state)
       setConnectionError(connection.error ?? '')
+      if (state === 'disconnected' || state === 'failed') setActiveDeviceId(null)
       if (state !== 'connected') sender.connectionClosed()
     })
     const unsubscribeMessages = connection.subscribeMessages((raw) => sender.handleMessage(raw))
@@ -224,12 +222,34 @@ function App() {
     }
   }, [])
 
-  async function handleConnect() {
+  async function handleConnect(deviceId: string) {
     setConnectionError('')
+    setActiveDeviceId(deviceId)
     try {
+      const ticketResponse = await fetch('/api/signal-ticket', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      })
+      const authorization = (await ticketResponse.json()) as {
+        ticket?: string
+        error?: string
+      }
+      if (!ticketResponse.ok || !authorization.ticket) {
+        throw new Error(
+          authorization.error === 'DEVICE_NOT_FOUND'
+            ? 'That Windows device is no longer registered.'
+            : 'Signaling authorization could not be created.',
+        )
+      }
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-      await connection.connect('mobile', sessionCode.trim().toLowerCase(), `${protocol}//${location.host}/signal`)
+      await connection.connectAuthenticated(
+        'mobile',
+        authorization.ticket,
+        `${protocol}//${location.host}/api/signal`,
+      )
     } catch (error) {
+      setActiveDeviceId(null)
       setConnectionError(error instanceof Error ? error.message : 'Connection failed.')
     }
   }
@@ -284,16 +304,6 @@ function App() {
     setTransferMessage('Connect to Windows before sending.')
   }
 
-  function handleSessionCodeChange(value: string) {
-    setSessionCode(value)
-    try {
-      if (value.length > 0) sessionStorage.setItem(SESSION_CODE_KEY, value)
-      else sessionStorage.removeItem(SESSION_CODE_KEY)
-    } catch {
-      setConnectionError('Safari could not retain the session code for this tab.')
-    }
-  }
-
   function handleSendClipboard() {
     try {
       setTransferStatus('sending')
@@ -318,12 +328,25 @@ function App() {
       const result = await authClient.signIn.social({
         provider,
         callbackURL,
+        disableRedirect: true,
       })
 
       if (result.error) {
         setAuthStatus('idle')
         setAuthMessage('Sign-in could not be started. Try again.')
+        return
       }
+
+      const authorizationUrl = result.data?.url
+      if (!authorizationUrl) throw new Error('Missing authorization URL')
+      const destination = new URL(authorizationUrl)
+      if (
+        destination.protocol !== 'https:' ||
+        destination.hostname !== AUTHORIZATION_HOSTS[provider]
+      ) {
+        throw new Error('Unexpected authorization URL')
+      }
+      location.assign(destination.href)
     } catch {
       setAuthStatus('idle')
       setAuthMessage('Sign-in could not be started. Try again.')
@@ -378,6 +401,10 @@ function App() {
         method: 'DELETE',
       })
       if (!response.ok) throw new Error('Revocation failed')
+      if (activeDeviceId === deviceId) {
+        connection.disconnect()
+        setActiveDeviceId(null)
+      }
       setDevices((current) => current.filter((device) => device.id !== deviceId))
       setDeviceMessage('Device removed.')
     } catch {
@@ -458,8 +485,7 @@ function App() {
           </button>
           {authMessage && <p role="alert">{authMessage}</p>}
           <p className="account-note">
-            Account sign-in and device enrollment are active. The development
-            connection below is still unauthenticated; use synthetic data only.
+            Account sign-in and registered-device authorization are active.
           </p>
         </section>
 
@@ -492,18 +518,51 @@ function App() {
               {devices.map((device) => (
                 <li key={device.id}>
                   <span>{device.name}</span>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => void handleRevokeDevice(device.id)}
-                  >
-                    Remove
-                  </button>
+                  <div className="device-actions">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => void handleConnect(device.id)}
+                      disabled={
+                        connectionState === 'signaling' ||
+                        connectionState === 'connecting' ||
+                        connectionState === 'connected'
+                      }
+                    >
+                      {activeDeviceId === device.id && connectionState === 'connected'
+                        ? 'Connected'
+                        : activeDeviceId === device.id &&
+                            (connectionState === 'signaling' || connectionState === 'connecting')
+                          ? 'Connecting...'
+                          : 'Connect'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void handleRevokeDevice(device.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
           {deviceMessage && <p role="status">{deviceMessage}</p>}
+          <p role="status">DataChannel: {connectionState}</p>
+          {connectionError && <p role="alert">{connectionError}</p>}
+          {connectionState !== 'disconnected' && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                connection.disconnect()
+                setActiveDeviceId(null)
+              }}
+            >
+              Disconnect
+            </button>
+          )}
         </section>
 
         <div className="actions">
@@ -572,23 +631,6 @@ function App() {
           through the signaling server or stored by Copyrade.
         </p>
 
-        <section aria-label="Development connection" className="preview">
-          <h2>Development connection</h2>
-          <p>Unauthenticated test only. Use synthetic data.</p>
-          <label htmlFor="session-code">Session code from Windows</label>
-          <input
-            id="session-code"
-            value={sessionCode}
-            onChange={(event) => handleSessionCodeChange(event.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-            maxLength={32}
-          />
-          <p role="status">DataChannel: {connectionState}</p>
-          {connectionError && <p role="alert">{connectionError}</p>}
-          <button type="button" onClick={() => void handleConnect()}>Connect</button>
-          <button type="button" onClick={() => connection.disconnect()}>Disconnect</button>
-        </section>
       </section>
     </main>
   )

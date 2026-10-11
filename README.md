@@ -4,7 +4,12 @@
 
 Copyrade is a mobile-to-Windows clipboard application designed to make moving text and images between personal devices fast and effortless. Copy content on a phone, send it to a registered computer, and paste it immediately in Windows—without using email, messaging apps, or cloud clipboard storage.
 
-> **Status:** Early development. The iPhone-to-Windows text-transfer path, staging account sign-in, and browser-approved Windows device enrollment have been validated. Authenticated signaling remains next.
+> **Status:** Early development. The authenticated iPhone-to-Windows text path, account sign-in, browser-approved device enrollment, account-scoped signaling, native clipboard write, and delivery acknowledgement have been validated on staging.
+
+**Hosted staging web client:** [copyrade-staging.abdullahijaz-m.workers.dev](https://copyrade-staging.abdullahijaz-m.workers.dev)
+
+The hosted client is an early testing deployment. It currently requires
+the Windows receiver to be run from this repository.
 
 ## How it will work
 
@@ -37,13 +42,14 @@ Copyrade is designed around a simpler model:
 | Electron Windows clipboard-write diagnostic | Complete |
 | Versioned text transfer protocol | Complete |
 | Development signaling and WebRTC DataChannel spike | Connected in one iPhone-to-Windows cross-network test; unauthenticated |
-| WebRTC text transfer and delivery acknowledgement | Complete for the unauthenticated development slice |
+| WebRTC text transfer and delivery acknowledgement | Validated through authenticated staging flow |
 | Transfer coordination and failure-path tests | Complete for the text slice |
 | Cloudflare control-plane foundation | Deployed to staging |
 | Google/GitHub authentication backend | Complete for staging |
 | Account-gated mobile flow | Complete for staging |
 | Browser-approved Windows device enrollment | Complete for staging |
-| Registered-device discovery and authenticated signaling | Next |
+| Registered-device discovery | Complete for staging |
+| Account-scoped authenticated signaling | Validated on staging |
 | Chunked image transfer | Planned |
 | Windows packaging and public alpha | Planned |
 
@@ -71,13 +77,15 @@ is a documented platform limitation of the web client.
 Real-device testing also confirmed manually entered text and clipboard-read text
 can travel over the WebRTC DataChannel, update the Windows clipboard through the
 validated Electron boundary, and produce a matching acknowledgement on the
-phone. This development flow still uses an unauthenticated session code and
+phone. The hosted account-scoped replacement has now passed the same connection,
+native clipboard-write, acknowledgement, disconnect, and revocation checks with
 synthetic data.
 
 The hosted staging app provides Google and GitHub sign-in, links identities only
 when the providers return the same verified email address, and restores an
-active session when the user returns. Authentication currently gates the web
-interface; it does not yet authorize the desktop receiver or WebRTC signaling.
+active session when the user returns. The browser-approved device credential
+authorizes the desktop receiver. Short-lived, single-use signaling tickets
+restrict both peers to the selected device and account.
 
 The initial text-transfer message contract is documented in
 [`docs/protocol.md`](docs/protocol.md). Recorded test environments and remaining
@@ -218,8 +226,8 @@ npm run check
 ## Roadmap
 
 1. Finish the reliable, documented text alpha and compatibility checks.
-2. Validate device registration, then add presence and authenticated signaling.
-3. Add persistent receiver and reconnect behavior, including revoked-device recovery.
+2. Add persistent receiver presence, online/offline status, and automatic connection requests.
+3. Add reconnect behavior, single-instance desktop handling, and clearer diagnostics.
 4. Validate image clipboard behavior and add bounded, chunked PNG transfer.
 5. Harden packaging and publish the first documented Windows alpha.
 

@@ -4,9 +4,6 @@ import { handleIncomingTextTransfer } from '@copyrade/transfer'
 import './App.css'
 
 const connection = new DevelopmentConnection()
-const sessionCode = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
-  byte.toString(16).padStart(2, '0'),
-).join('')
 
 type WriteStatus = 'idle' | 'writing' | 'success' | 'error'
 type EnrollmentState = 'loading' | 'unenrolled' | 'waiting' | 'enrolled' | 'error'
@@ -68,6 +65,12 @@ function App() {
   }, [enrollmentState, refreshDeviceStatus])
 
   useEffect(() => {
+    if (enrollmentState !== 'enrolled' && connection.state !== 'disconnected') {
+      connection.disconnect()
+    }
+  }, [enrollmentState])
+
+  useEffect(() => {
     const unsubscribeState = connection.subscribe((state) => {
       setConnectionState(state)
       setConnectionError(connection.error ?? '')
@@ -104,7 +107,13 @@ function App() {
   async function handleConnect() {
     setConnectionError('')
     try {
-      await connection.connect('desktop', sessionCode, 'ws://127.0.0.1:8787/signal')
+      const authorization = await window.copyrade.device.getSignalingTicket()
+      if (!authorization.ok) throw new Error(authorization.error)
+      await connection.connectAuthenticated(
+        'desktop',
+        authorization.ticket,
+        authorization.signalingUrl,
+      )
     } catch (error) {
       setConnectionError(error instanceof Error ? error.message : 'Connection failed.')
     }
@@ -249,15 +258,29 @@ function App() {
           Copyrade does not persist or log clipboard contents.
         </p>
 
-        <section aria-label="Development connection">
-          <h2>Development connection</h2>
-          <p>Unauthenticated test only. Use synthetic data.</p>
-          <label htmlFor="session-code">Session code</label>
-          <input id="session-code" readOnly value={sessionCode} />
+        <section aria-label="Account connection">
+          <h2>Mobile connection</h2>
           <p role="status">DataChannel: {connectionState}</p>
           {connectionError && <p role="alert">{connectionError}</p>}
-          <button type="button" onClick={() => void handleConnect()}>Listen for mobile</button>
-          <button type="button" onClick={() => connection.disconnect()}>Disconnect</button>
+          <button
+            type="button"
+            onClick={() => void handleConnect()}
+            disabled={
+              enrollmentState !== 'enrolled' ||
+              connectionState === 'signaling' ||
+              connectionState === 'connecting' ||
+              connectionState === 'connected'
+            }
+          >
+            {connectionState === 'connected' ? 'Connected' : 'Listen for mobile'}
+          </button>
+          <button
+            type="button"
+            onClick={() => connection.disconnect()}
+            disabled={connectionState === 'disconnected'}
+          >
+            Disconnect
+          </button>
         </section>
       </section>
     </main>
