@@ -37,4 +37,19 @@ describe('signaling tickets', () => {
     )
     assert.equal(await verifySignalingTicket(issued.ticket, secret, issued.expiresAt), null)
   })
+
+  it('uses an account-only observer ticket for browser presence updates', async () => {
+    const issued = await createSignalingTicket(
+      {
+        accountId: 'user-1',
+        role: 'observer',
+        deviceId: null,
+      },
+      secret,
+      1_000_000,
+    )
+    const claims = await verifySignalingTicket(issued.ticket, secret, 1_000_001)
+    assert.equal(claims?.role, 'observer')
+    assert.equal(claims?.deviceId, null)
+  })
 })

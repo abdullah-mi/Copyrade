@@ -22,6 +22,7 @@ interface CopyradeDesktopApi {
     startEnrollment(deviceName: string): Promise<DeviceEnrollmentResult>
     pollEnrollment(): Promise<DeviceEnrollmentResult>
     getSignalingTicket(): Promise<SignalingTicketResult>
+    getPresenceTicket(): Promise<PresenceTicketResult>
   }
 }
 
@@ -58,6 +59,10 @@ type DeviceEnrollmentStatus =
 
 type SignalingTicketResult =
   | { ok: true; ticket: string; signalingUrl: string; expiresAt: number }
+  | { ok: false; error: string }
+
+type PresenceTicketResult =
+  | { ok: true; ticket: string; presenceUrl: string; expiresAt: number }
   | { ok: false; error: string }
 
 declare global {

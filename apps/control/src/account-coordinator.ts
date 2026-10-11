@@ -6,10 +6,22 @@ type AccountCoordinatorEnvironment = {
   SIGNALING_TICKET_SECRET: string
 }
 
-type ConnectionAttachment = {
+type SignalAttachment = {
+  kind: 'signal'
   role: ConnectionRole
   deviceId: string
 }
+
+type PresenceAttachment = {
+  kind: 'presence'
+  deviceId: string
+}
+
+type ObserverAttachment = {
+  kind: 'observer'
+}
+
+type ConnectionAttachment = SignalAttachment | PresenceAttachment | ObserverAttachment
 
 const SIGNAL_TYPES = new Set(['offer', 'answer', 'candidate'])
 
@@ -54,9 +66,16 @@ function attachment(socket: WebSocket): ConnectionAttachment | null {
   try {
     const value: unknown = socket.deserializeAttachment()
     if (!isRecord(value)) return null
-    if (value.role !== 'desktop' && value.role !== 'mobile') return null
+    if (value.kind === 'observer') return { kind: 'observer' }
     if (typeof value.deviceId !== 'string') return null
-    return { role: value.role, deviceId: value.deviceId }
+    if (value.kind === 'presence') return { kind: 'presence', deviceId: value.deviceId }
+    if (
+      value.kind === 'signal' &&
+      (value.role === 'desktop' || value.role === 'mobile')
+    ) {
+      return { kind: 'signal', role: value.role, deviceId: value.deviceId }
+    }
+    return null
   } catch {
     return null
   }
@@ -74,12 +93,35 @@ export class AccountCoordinator {
 
   private peerFor(socket: WebSocket): WebSocket | null {
     const own = attachment(socket)
-    if (!own) return null
+    if (!own || own.kind !== 'signal') return null
     return this.sockets().find((candidate) => {
       if (candidate === socket) return false
       const peer = attachment(candidate)
-      return peer?.deviceId === own.deviceId && peer.role !== own.role
+      return peer?.kind === 'signal' && peer.deviceId === own.deviceId && peer.role !== own.role
     }) ?? null
+  }
+
+  private presenceFor(deviceId: string): WebSocket | null {
+    return this.sockets().find((socket) => {
+      const value = attachment(socket)
+      return value?.kind === 'presence' && value.deviceId === deviceId
+    }) ?? null
+  }
+
+  private onlineDeviceIds(): string[] {
+    return [...new Set(
+      this.sockets()
+        .map(attachment)
+        .filter((value): value is PresenceAttachment => value?.kind === 'presence')
+        .map((value) => value.deviceId),
+    )]
+  }
+
+  private notifyObservers(): void {
+    const message = JSON.stringify({ type: 'presence', deviceIds: this.onlineDeviceIds() })
+    for (const socket of this.sockets()) {
+      if (attachment(socket)?.kind === 'observer') this.safelySend(socket, message)
+    }
   }
 
   private safelySend(socket: WebSocket, message: string): void {
@@ -120,11 +162,25 @@ export class AccountCoordinator {
       const deviceId = request.headers.get('x-copyrade-device-id')
       if (!deviceId) return new Response(null, { status: 400 })
       for (const socket of this.sockets()) {
-        if (attachment(socket)?.deviceId === deviceId) {
+        const value = attachment(socket)
+        if (value && value.kind !== 'observer' && value.deviceId === deviceId) {
           socket.close(4003, 'Device revoked')
         }
       }
       return new Response(null, { status: 204 })
+    }
+
+    if (url.pathname === '/online-devices' && request.method === 'GET') {
+      return Response.json({ deviceIds: this.onlineDeviceIds() })
+    }
+
+    if (url.pathname === '/connection-request' && request.method === 'POST') {
+      const deviceId = request.headers.get('x-copyrade-device-id')
+      if (!deviceId) return new Response(null, { status: 400 })
+      const presence = this.presenceFor(deviceId)
+      if (!presence) return new Response(null, { status: 409 })
+      this.safelySend(presence, JSON.stringify({ type: 'connect' }))
+      return new Response(null, { status: 202 })
     }
 
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
@@ -136,8 +192,11 @@ export class AccountCoordinator {
     const protocols = (request.headers.get('sec-websocket-protocol') ?? '')
       .split(',')
       .map((value) => value.trim())
-    if (!protocols.includes('copyrade-v1')) {
-      return new Response('Unsupported signaling protocol.', { status: 400 })
+    const expectedProtocol = url.pathname === '/api/presence'
+      ? 'copyrade-presence-v1'
+      : 'copyrade-v1'
+    if (!protocols.includes(expectedProtocol)) {
+      return new Response('Unsupported protocol.', { status: 400 })
     }
     const ticket = protocols.find((value) => value.startsWith('cpy.signal.'))
     const claims = ticket
@@ -151,16 +210,56 @@ export class AccountCoordinator {
     }
     const { role, deviceId } = claims
 
+    if (url.pathname === '/api/presence') {
+      if ((role !== 'presence' && role !== 'observer') || !protocols.includes('copyrade-presence-v1')) {
+        return new Response('Invalid presence authorization.', { status: 401 })
+      }
+      if (role === 'observer') {
+        const pair = new WebSocketPair()
+        const [client, server] = Object.values(pair)
+        server.serializeAttachment({ kind: 'observer' } satisfies ObserverAttachment)
+        this.state.acceptWebSocket(server)
+        this.safelySend(server, JSON.stringify({ type: 'presence', deviceIds: this.onlineDeviceIds() }))
+        return new Response(null, {
+          status: 101,
+          webSocket: client,
+          headers: { 'sec-websocket-protocol': 'copyrade-presence-v1' },
+        })
+      }
+      if (!deviceId) return new Response('Invalid presence authorization.', { status: 401 })
+      for (const socket of this.sockets()) {
+        const existing = attachment(socket)
+        if (existing?.kind === 'presence' && existing.deviceId === deviceId) {
+          socket.close(4001, 'Presence replaced')
+        }
+      }
+      const pair = new WebSocketPair()
+      const [client, server] = Object.values(pair)
+      server.serializeAttachment({ kind: 'presence', deviceId } satisfies PresenceAttachment)
+      this.state.acceptWebSocket(server)
+      this.safelySend(server, JSON.stringify({ type: 'ready' }))
+      this.notifyObservers()
+      return new Response(null, {
+        status: 101,
+        webSocket: client,
+        headers: { 'sec-websocket-protocol': 'copyrade-presence-v1' },
+      })
+    }
+
+    if (role === 'presence' || role === 'observer' || !deviceId) {
+      return new Response('Invalid signaling authorization.', { status: 401 })
+    }
+
     for (const socket of this.sockets()) {
       const existing = attachment(socket)
-      if (existing?.role === role && existing.deviceId === deviceId) {
+      if (existing?.kind === 'signal' && existing.role === role && existing.deviceId === deviceId) {
         socket.close(4001, 'Connection replaced')
       }
     }
 
     const pair = new WebSocketPair()
     const [client, server] = Object.values(pair)
-    server.serializeAttachment({ role, deviceId } satisfies ConnectionAttachment)
+    server.serializeAttachment({ kind: 'signal', role, deviceId } satisfies SignalAttachment)
     this.state.acceptWebSocket(server)
     this.safelySend(server, JSON.stringify({ type: 'joined', role }))
     this.notifyReady(server)
@@ -173,6 +272,10 @@ export class AccountCoordinator {
   }
 
   webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): void {
+    if (attachment(socket)?.kind === 'presence') {
+      socket.close(1008, 'Presence sockets do not accept messages')
+      return
+    }
     if (typeof message !== 'string' || message.length > 16_384) {
       socket.close(1008, 'Invalid signaling message')
       return
@@ -197,8 +300,10 @@ export class AccountCoordinator {
   }
 
   webSocketClose(socket: WebSocket): void {
+    const own = attachment(socket)
     const peer = this.peerFor(socket)
     if (peer) this.safelySend(peer, JSON.stringify({ type: 'left' }))
+    if (own?.kind === 'presence') this.notifyObservers()
   }
 
   webSocketError(socket: WebSocket): void {

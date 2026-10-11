@@ -1,9 +1,9 @@
-export type SignalingRole = 'desktop' | 'mobile'
+export type SignalingRole = 'desktop' | 'mobile' | 'presence' | 'observer'
 
 export type SignalingTicketClaims = {
   accountId: string
   role: SignalingRole
-  deviceId: string
+  deviceId: string | null
   issuedAt: number
   expiresAt: number
   nonce: string
@@ -45,9 +45,10 @@ function isClaims(value: unknown): value is SignalingTicketClaims {
   return (
     typeof claims.accountId === 'string' &&
     claims.accountId.length > 0 &&
-    (claims.role === 'desktop' || claims.role === 'mobile') &&
-    typeof claims.deviceId === 'string' &&
-    /^[0-9a-f-]{36}$/i.test(claims.deviceId) &&
+    ['desktop', 'mobile', 'presence', 'observer'].includes(claims.role ?? '') &&
+    (claims.role === 'observer'
+      ? claims.deviceId === null
+      : typeof claims.deviceId === 'string' && /^[0-9a-f-]{36}$/i.test(claims.deviceId)) &&
     typeof claims.issuedAt === 'number' &&
     typeof claims.expiresAt === 'number' &&
     typeof claims.nonce === 'string' &&

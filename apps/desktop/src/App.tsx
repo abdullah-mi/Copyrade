@@ -7,6 +7,7 @@ const connection = new DevelopmentConnection()
 
 type WriteStatus = 'idle' | 'writing' | 'success' | 'error'
 type EnrollmentState = 'loading' | 'unenrolled' | 'waiting' | 'enrolled' | 'error'
+type PresenceState = 'offline' | 'connecting' | 'online'
 
 function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
@@ -19,6 +20,7 @@ function App() {
   const [deviceName, setDeviceName] = useState('Windows PC')
   const [enrollmentState, setEnrollmentState] = useState<EnrollmentState>('loading')
   const [enrollmentMessage, setEnrollmentMessage] = useState('Checking device registration...')
+  const [presenceState, setPresenceState] = useState<PresenceState>('offline')
   const enrollmentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const refreshDeviceStatus = useCallback(async () => {
@@ -104,7 +106,7 @@ function App() {
     }
   }, [])
 
-  async function handleConnect() {
+  const handleConnect = useCallback(async () => {
     setConnectionError('')
     try {
       const authorization = await window.copyrade.device.getSignalingTicket()
@@ -117,7 +119,63 @@ function App() {
     } catch (error) {
       setConnectionError(error instanceof Error ? error.message : 'Connection failed.')
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (enrollmentState !== 'enrolled') return
+
+    let disposed = false
+    let socket: WebSocket | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let retryDelay = 1_000
+
+    const connectPresence = async () => {
+      setPresenceState('connecting')
+      const authorization = await window.copyrade.device.getPresenceTicket()
+      if (disposed) return
+      if (!authorization.ok) {
+        setPresenceState('offline')
+        reconnectTimer = setTimeout(() => void connectPresence(), retryDelay)
+        retryDelay = Math.min(retryDelay * 2, 30_000)
+        return
+      }
+
+      socket = new WebSocket(authorization.presenceUrl, [
+        'copyrade-presence-v1',
+        authorization.ticket,
+      ])
+      socket.onmessage = (event) => {
+        if (typeof event.data !== 'string' || event.data.length > 1024) return
+        try {
+          const message: unknown = JSON.parse(event.data)
+          if (!message || typeof message !== 'object' || !('type' in message)) return
+          if (message.type === 'ready') {
+            retryDelay = 1_000
+            setPresenceState('online')
+          } else if (message.type === 'connect') {
+            void handleConnect()
+          }
+        } catch {
+          socket?.close(1008, 'Invalid presence message')
+        }
+      }
+      socket.onclose = () => {
+        if (disposed) return
+        socket = null
+        setPresenceState('offline')
+        reconnectTimer = setTimeout(() => void connectPresence(), retryDelay)
+        retryDelay = Math.min(retryDelay * 2, 30_000)
+      }
+      socket.onerror = () => socket?.close()
+    }
+
+    void connectPresence()
+    return () => {
+      disposed = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      socket?.close(1000, 'Presence stopped')
+    }
+  }, [enrollmentState, handleConnect])
 
   async function handleWriteClipboard() {
     setStatus('writing')
@@ -260,20 +318,11 @@ function App() {
 
         <section aria-label="Account connection">
           <h2>Mobile connection</h2>
+          <p role="status">
+            Receiver: {enrollmentState === 'enrolled' ? presenceState : 'offline'}
+          </p>
           <p role="status">DataChannel: {connectionState}</p>
           {connectionError && <p role="alert">{connectionError}</p>}
-          <button
-            type="button"
-            onClick={() => void handleConnect()}
-            disabled={
-              enrollmentState !== 'enrolled' ||
-              connectionState === 'signaling' ||
-              connectionState === 'connecting' ||
-              connectionState === 'connected'
-            }
-          >
-            {connectionState === 'connected' ? 'Connected' : 'Listen for mobile'}
-          </button>
           <button
             type="button"
             onClick={() => connection.disconnect()}
