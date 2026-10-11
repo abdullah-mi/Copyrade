@@ -16,6 +16,20 @@ type AuthSession = {
     email: string
   }
 }
+type RegisteredDevice = {
+  id: string
+  name: string
+  platform: 'windows'
+  createdAt: number
+  lastSeenAt: number | null
+}
+type EnrollmentReview = {
+  userCode: string
+  deviceName: string
+  platform: 'windows'
+  expiresAt: number
+  approved: boolean
+}
 
 function getAuthCallbackMessage(): string {
   const error = new URL(location.href).searchParams.get('error')
@@ -56,6 +70,10 @@ function App() {
   const [isSessionPending, setIsSessionPending] = useState(true)
   const [authStatus, setAuthStatus] = useState<AuthStatus>('idle')
   const [authMessage, setAuthMessage] = useState(getAuthCallbackMessage)
+  const [devices, setDevices] = useState<RegisteredDevice[]>([])
+  const [deviceMessage, setDeviceMessage] = useState('')
+  const [enrollmentReview, setEnrollmentReview] = useState<EnrollmentReview | null>(null)
+  const [enrollmentMessage, setEnrollmentMessage] = useState('')
   const [sessionCode, setSessionCode] = useState(restoreSessionCode)
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
   const [connectionError, setConnectionError] = useState('')
@@ -116,9 +134,45 @@ function App() {
 
     const destination = session ? '/app' : '/login'
     if (location.pathname !== destination) {
-      history.replaceState(history.state, '', destination)
+      const url = new URL(location.href)
+      url.pathname = destination
+      history.replaceState(history.state, '', url)
     }
   }, [isSessionPending, session])
+
+  useEffect(() => {
+    if (!session) return
+    let disposed = false
+
+    void fetch('/api/devices')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Device list failed')
+        const body = (await response.json()) as { devices: RegisteredDevice[] }
+        if (!disposed) setDevices(body.devices)
+      })
+      .catch(() => {
+        if (!disposed) setDeviceMessage('Registered devices could not be loaded.')
+      })
+
+    const enrollmentCode = new URL(location.href).searchParams.get('enroll')
+    if (enrollmentCode) {
+      void fetch(`/api/device-enrollments?code=${encodeURIComponent(enrollmentCode)}`)
+        .then(async (response) => {
+          if (!response.ok) throw new Error('Enrollment lookup failed')
+          const body = (await response.json()) as { enrollment: EnrollmentReview }
+          if (!disposed) setEnrollmentReview(body.enrollment)
+        })
+        .catch(() => {
+          if (!disposed) {
+            setEnrollmentMessage('This device enrollment code is invalid or expired.')
+          }
+        })
+    }
+
+    return () => {
+      disposed = true
+    }
+  }, [session])
 
   useEffect(() => {
     function handleTransferResult(result: OutgoingTransferResult) {
@@ -257,9 +311,13 @@ function App() {
     setAuthMessage('')
 
     try {
+      const enrollmentCode = new URL(location.href).searchParams.get('enroll')
+      const callbackURL = enrollmentCode
+        ? `/app?enroll=${encodeURIComponent(enrollmentCode)}`
+        : '/app'
       const result = await authClient.signIn.social({
         provider,
-        callbackURL: '/app',
+        callbackURL,
       })
 
       if (result.error) {
@@ -288,6 +346,42 @@ function App() {
     } catch {
       setAuthStatus('idle')
       setAuthMessage('Sign-out did not complete. Try again.')
+    }
+  }
+
+  async function handleApproveEnrollment() {
+    if (!enrollmentReview) return
+    setEnrollmentMessage('Approving this device...')
+    try {
+      const response = await fetch('/api/device-enrollments/approve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ userCode: enrollmentReview.userCode }),
+      })
+      if (!response.ok) throw new Error('Approval failed')
+      setEnrollmentReview({ ...enrollmentReview, approved: true })
+      setEnrollmentMessage(
+        `${enrollmentReview.deviceName} is approved. Return to the Windows app to finish.`,
+      )
+      const url = new URL(location.href)
+      url.searchParams.delete('enroll')
+      history.replaceState(history.state, '', url)
+    } catch {
+      setEnrollmentMessage('This device could not be approved. The code may have expired.')
+    }
+  }
+
+  async function handleRevokeDevice(deviceId: string) {
+    setDeviceMessage('Removing device...')
+    try {
+      const response = await fetch(`/api/devices/${encodeURIComponent(deviceId)}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) throw new Error('Revocation failed')
+      setDevices((current) => current.filter((device) => device.id !== deviceId))
+      setDeviceMessage('Device removed.')
+    } catch {
+      setDeviceMessage('The device could not be removed.')
     }
   }
 
@@ -346,9 +440,7 @@ function App() {
     <main className="app-shell">
       <section className="clipboard-card" aria-labelledby="page-title">
         <header>
-          <p className="eyebrow">Clipboard capability test</p>
           <h1 id="page-title">Copyrade</h1>
-          <p className="tagline">Your clipboard comrade.</p>
         </header>
 
         <section className="account" aria-labelledby="account-title">
@@ -366,9 +458,52 @@ function App() {
           </button>
           {authMessage && <p role="alert">{authMessage}</p>}
           <p className="account-note">
-            Account sign-in is active. Device authorization is the next
-            milestone; the development connection below is still unauthenticated.
+            Account sign-in and device enrollment are active. The development
+            connection below is still unauthenticated; use synthetic data only.
           </p>
+        </section>
+
+        {enrollmentReview && (
+          <section className="account" aria-labelledby="enrollment-title">
+            <h2 id="enrollment-title">Register Windows device</h2>
+            <p>
+              Register <strong>{enrollmentReview.deviceName}</strong> to your
+              Copyrade account? Confirm that code{' '}
+              <strong>{enrollmentReview.userCode}</strong> matches the Windows app.
+            </p>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => void handleApproveEnrollment()}
+              disabled={enrollmentReview.approved}
+            >
+              {enrollmentReview.approved ? 'Device approved' : 'Approve device'}
+            </button>
+          </section>
+        )}
+        {enrollmentMessage && <p role="status">{enrollmentMessage}</p>}
+
+        <section className="account" aria-labelledby="devices-title">
+          <h2 id="devices-title">Registered devices</h2>
+          {devices.length === 0 ? (
+            <p>No Windows devices are registered.</p>
+          ) : (
+            <ul className="device-list">
+              {devices.map((device) => (
+                <li key={device.id}>
+                  <span>{device.name}</span>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void handleRevokeDevice(device.id)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {deviceMessage && <p role="status">{deviceMessage}</p>}
         </section>
 
         <div className="actions">

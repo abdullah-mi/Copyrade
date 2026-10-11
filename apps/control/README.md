@@ -50,8 +50,8 @@ Authentication deployments require this order:
 
 1. Review and apply the committed D1 migrations with
    `npm run db:migrate:remote --workspace @copyrade/control`.
-2. Configure `BETTER_AUTH_SECRET`, Google credentials, and GitHub credentials
-   with `wrangler secret put`.
+2. Configure `BETTER_AUTH_SECRET`, `DEVICE_CREDENTIAL_SECRET`, Google
+   credentials, and GitHub credentials with `wrangler secret put`.
 3. Deploy only after the migrations and secrets succeed.
 
 Google's callback URL is
@@ -68,9 +68,19 @@ Browser sessions use Better Auth's server-side D1 session records and secure,
 HTTP-only session cookie. The session has a seven-day rolling lifetime and is
 refreshed after one day of activity; signing out revokes it immediately.
 
+Device enrollment uses a ten-minute browser approval flow. D1 stores keyed
+hashes of the visible approval code, the desktop-only exchange code, and the
+issued device token. Apply `0002_device_enrollment.sql` before deploying code
+that exposes these endpoints. The desktop exchanges its grant once and protects
+the returned token with Electron `safeStorage`.
+
+`GET /api/device-session` validates the bearer credential without exposing it to
+the renderer. Revoked tokens receive `401`; Electron then deletes its local
+encrypted copy and returns to the registration state.
+
 The first deployment also creates the `AccountCoordinator` Durable Object class.
-The class currently rejects requests because authenticated signaling will be
-implemented only after account and device authorization.
+The class currently rejects requests because authenticated signaling is the
+next milestone after device-enrollment validation.
 
 Do not place OAuth secrets, session secrets, tokens, clipboard contents, SDP, ICE
 candidates, or device authorization codes in source control or logs.

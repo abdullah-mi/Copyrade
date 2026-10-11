@@ -17,7 +17,43 @@ interface CopyradeDesktopApi {
   clipboard: {
     writeText(text: string): Promise<ClipboardWriteResult>
   }
+  device: {
+    getStatus(): Promise<DeviceEnrollmentStatus>
+    startEnrollment(deviceName: string): Promise<DeviceEnrollmentResult>
+    pollEnrollment(): Promise<DeviceEnrollmentResult>
+  }
 }
+
+type EnrolledDevice = {
+  id: string
+  name: string
+  platform: 'windows'
+  createdAt: number
+}
+
+type DeviceEnrollmentResult =
+  | {
+      ok: true
+      state: 'authorization_pending'
+      userCode: string
+      expiresAt: number
+      intervalSeconds: number
+    }
+  | {
+      ok: true
+      state: 'enrolled'
+      device: EnrolledDevice
+    }
+  | { ok: false; error: string }
+
+type DeviceEnrollmentStatus =
+  | { enrolled: false; suggestedName: string; message?: string; error?: string }
+  | {
+      enrolled: true
+      suggestedName: string
+      device: EnrolledDevice
+      warning?: string
+    }
 
 declare global {
   interface Window {

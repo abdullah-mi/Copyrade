@@ -7,10 +7,15 @@ import {
   validateClipboardText,
 } from './clipboard-request.js'
 import type { ClipboardWriteResult } from './clipboard-request.js'
+import { DeviceEnrollmentManager } from './device-enrollment.js'
 
 const CLIPBOARD_WRITE_CHANNEL = 'clipboard:write-text'
+const DEVICE_STATUS_CHANNEL = 'device:status'
+const DEVICE_ENROLL_START_CHANNEL = 'device:enroll-start'
+const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
 
 let mainWindow: BrowserWindow | null = null
+const deviceEnrollment = new DeviceEnrollmentManager()
 
 function rendererEntryPath(): string {
   return join(__dirname, '..', 'dist', 'index.html')
@@ -81,6 +86,24 @@ function createWindow(): void {
 }
 
 ipcMain.handle(CLIPBOARD_WRITE_CHANNEL, writeClipboardText)
+ipcMain.handle(DEVICE_STATUS_CHANNEL, (event) => {
+  if (!isTrustedSender(event.senderFrame)) {
+    return { enrolled: false, suggestedName: '', error: 'The device request was not trusted.' }
+  }
+  return deviceEnrollment.status()
+})
+ipcMain.handle(DEVICE_ENROLL_START_CHANNEL, (event, deviceName: unknown) => {
+  if (!isTrustedSender(event.senderFrame)) {
+    return { ok: false, error: 'The device request was not trusted.' }
+  }
+  return deviceEnrollment.start(deviceName)
+})
+ipcMain.handle(DEVICE_ENROLL_POLL_CHANNEL, (event) => {
+  if (!isTrustedSender(event.senderFrame)) {
+    return { ok: false, error: 'The device request was not trusted.' }
+  }
+  return deviceEnrollment.poll()
+})
 
 app.whenReady().then(() => {
   createWindow()

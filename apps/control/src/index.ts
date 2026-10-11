@@ -1,7 +1,8 @@
 import { createAuth, type AuthEnvironment } from './auth-config.js'
+import { routeDeviceApiRequest, type DeviceApiEnvironment } from './device-api.js'
 import { isAuthApiRequest, routeApiRequest } from './router.js'
 
-export type Env = AuthEnvironment & {
+export type Env = AuthEnvironment & DeviceApiEnvironment & {
   ACCOUNT_COORDINATOR: DurableObjectNamespace
   ASSETS: Fetcher
 }
@@ -22,13 +23,16 @@ export class AccountCoordinator {
 }
 
 export default {
-  fetch(request, env): Promise<Response> {
+  async fetch(request, env): Promise<Response> {
     if (isAuthApiRequest(request)) {
       return createAuth(env).handler(request)
     }
 
+    const deviceResponse = await routeDeviceApiRequest(request, env)
+    if (deviceResponse) return deviceResponse
+
     const apiResponse = routeApiRequest(request)
-    if (apiResponse) return Promise.resolve(apiResponse)
+    if (apiResponse) return apiResponse
     return env.ASSETS.fetch(request)
   },
 } satisfies ExportedHandler<Env>
