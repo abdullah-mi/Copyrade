@@ -15,7 +15,7 @@ The production control plane may store:
 - registered device names, public identifiers, timestamps, and revocation state;
 - minimal abuse-prevention and operational metadata.
 
-It must not store clipboard text, images, clipboard history, device codes,
+It must not store clipboard text, images, clipboard history, plaintext device codes,
 session secrets, SDP, ICE candidates, or OAuth credentials in logs. Transient
 signaling messages may pass through a Durable Object only to establish WebRTC
 and must not be persisted.
@@ -62,6 +62,26 @@ taking over an existing account.
 - Authentication rate limits use D1-backed state rather than per-isolate memory.
 - Database migrations are committed and applied first to staging.
 - Dependency audits, type checks, tests, and builds run before deployment.
+
+## Implemented device-enrollment controls
+
+- Enrollment grants expire after ten minutes and can be exchanged only once.
+- The human-readable code and desktop-only exchange code are different
+  secrets; seeing the approval code is insufficient to claim the credential.
+- Enrollment starts are rate-limited per hashed source address.
+- Approval requires both a valid account session and an exact same-origin
+  request, reducing cross-site request-forgery risk.
+- D1 stores keyed hashes rather than plaintext enrollment codes or device
+  tokens. Device hashes use a secret independent from the account-session
+  secret so the two credential families can be rotated separately.
+- Electron keeps the issued token out of the renderer and encrypts it on disk
+  with `safeStorage`. On Windows this uses DPAPI and protects the credential
+  from other OS users, but not necessarily from malicious software running as
+  the same Windows user.
+- Removing a device marks it revoked rather than deleting its audit metadata.
+  Electron periodically validates its saved credential and removes it after
+  revocation. Authenticated signaling must independently reject revoked
+  credentials before real clipboard data is allowed.
 
 This document describes intended guarantees. Features that are not implemented
 must remain labelled as planned in public documentation and UI.

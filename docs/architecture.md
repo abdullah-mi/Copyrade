@@ -55,19 +55,21 @@ The last login method cannot be removed until another usable method exists.
 
 ## Device authorization
 
-The Windows app will use an OAuth-style device authorization flow:
+The Windows app uses an OAuth-style device authorization flow:
 
-1. Electron requests a short-lived device code and displays a short user code
-   and QR link.
+1. Electron requests a short-lived device code and opens a browser approval
+   link containing a short user code.
 2. The user signs in on the mobile web app and approves the named Windows
    device.
-3. Electron polls until approval, then receives a revocable device session.
+3. Electron polls until approval, then receives a revocable device credential.
 4. Electron protects that session with `safeStorage` (Windows DPAPI).
 5. Routine transfers show the user's registered online devices; the pairing
    code is not re-entered for each connection.
 
-Codes will be single-use, expire quickly, be rate-limited, and never appear in
-logs. Device names are user-editable metadata, not proof of identity.
+The visible code and desktop-only exchange code are separate. Codes are
+single-use, expire after ten minutes, are rate-limited, and never appear in
+logs. D1 stores only keyed hashes. Device names are user-editable metadata, not
+proof of identity.
 
 ## Delivery stages
 

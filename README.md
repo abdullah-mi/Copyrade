@@ -4,7 +4,7 @@
 
 Copyrade is a mobile-to-Windows clipboard application designed to make moving text and images between personal devices fast and effortless. Copy content on a phone, send it to a registered computer, and paste it immediately in Windows—without using email, messaging apps, or cloud clipboard storage.
 
-> **Status:** Early development. The iPhone-to-Windows text-transfer path has been validated end to end, and the staging web app now supports persistent Google and GitHub sign-in. Device registration and authenticated signaling are the next implementation milestone.
+> **Status:** Early development. The iPhone-to-Windows text-transfer path, staging account sign-in, and browser-approved Windows device enrollment have been validated. Authenticated signaling remains next.
 
 ## How it will work
 
@@ -42,7 +42,8 @@ Copyrade is designed around a simpler model:
 | Cloudflare control-plane foundation | Deployed to staging |
 | Google/GitHub authentication backend | Complete for staging |
 | Account-gated mobile flow | Complete for staging |
-| Registered-device discovery | Designed; implementation next |
+| Browser-approved Windows device enrollment | Complete for staging |
+| Registered-device discovery and authenticated signaling | Next |
 | Chunked image transfer | Planned |
 | Windows packaging and public alpha | Planned |
 
@@ -217,8 +218,8 @@ npm run check
 ## Roadmap
 
 1. Finish the reliable, documented text alpha and compatibility checks.
-2. Add device registration, presence, and authenticated signaling to the account system.
-3. Add persistent receiver and reconnect behavior.
+2. Validate device registration, then add presence and authenticated signaling.
+3. Add persistent receiver and reconnect behavior, including revoked-device recovery.
 4. Validate image clipboard behavior and add bounded, chunked PNG transfer.
 5. Harden packaging and publish the first documented Windows alpha.
 
