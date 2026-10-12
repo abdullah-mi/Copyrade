@@ -51,6 +51,7 @@ Copyrade is designed around a simpler model:
 | Registered-device discovery | Complete for staging |
 | Account-scoped authenticated signaling | Validated on staging |
 | Persistent receiver presence and automatic connection requests | Validated on staging |
+| Automatic text send after clipboard read or completed edit | Validated on staging |
 | Chunked image transfer | Planned |
 | Windows packaging and public alpha | Planned |
 

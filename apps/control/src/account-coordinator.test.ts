@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { isValidSignal } from './account-coordinator.js'
+import { isValidSignal, shouldNotifyPeerOnClose } from './account-coordinator.js'
 
 describe('authenticated signaling validation', () => {
   it('accepts bounded SDP and browser candidates', () => {
@@ -36,5 +36,13 @@ describe('authenticated signaling validation', () => {
       isValidSignal({ type: 'offer', data: { type: 'offer', sdp: 'x'.repeat(12_001) } }),
       false,
     )
+  })
+})
+
+describe('signaling socket replacement', () => {
+  it('does not disconnect the new peer when a stale socket is replaced', () => {
+    assert.equal(shouldNotifyPeerOnClose(4001), false)
+    assert.equal(shouldNotifyPeerOnClose(1000), true)
+    assert.equal(shouldNotifyPeerOnClose(1011), true)
   })
 })

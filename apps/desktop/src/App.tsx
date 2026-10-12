@@ -321,7 +321,9 @@ function App() {
           <p role="status">
             Receiver: {enrollmentState === 'enrolled' ? presenceState : 'offline'}
           </p>
-          <p role="status">DataChannel: {connectionState}</p>
+          <p role="status">
+            Mobile: {connectionState === 'connected' ? 'online' : 'offline'}
+          </p>
           {connectionError && <p role="alert">{connectionError}</p>}
           <button
             type="button"

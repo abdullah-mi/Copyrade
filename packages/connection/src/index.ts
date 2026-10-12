@@ -46,7 +46,7 @@ export class DevelopmentConnection {
     this.disconnectionTimeout = null
   }
 
-  private closeResources(): void {
+  private closeResources(socketCode = 1000, socketReason = 'Connection closed'): void {
     this.clearConnectionTimeout()
     this.clearDisconnectionTimeout()
     const socket = this.socket
@@ -61,7 +61,7 @@ export class DevelopmentConnection {
       socket.onclose = null
       socket.onerror = null
       socket.onmessage = null
-      socket.close()
+      socket.close(socketCode, socketReason)
     }
     if (channel) {
       channel.onopen = null
@@ -89,6 +89,14 @@ export class DevelopmentConnection {
     this.disconnectionTimeout = setTimeout(() => {
       this.disconnectionTimeout = null
       if (this.peer === peer) this.fail(message)
+    }, delay)
+  }
+
+  private scheduleDisconnect(peer: RTCPeerConnection, delay: number): void {
+    if (this.disconnectionTimeout !== null) return
+    this.disconnectionTimeout = setTimeout(() => {
+      this.disconnectionTimeout = null
+      if (this.peer === peer) this.disconnect()
     }, delay)
   }
 
@@ -166,7 +174,7 @@ export class DevelopmentConnection {
     if (!url.startsWith('wss://') && !url.startsWith('ws://127.0.0.1:')) {
       throw new Error('Signaling requires WSS or local loopback.')
     }
-    this.closeResources()
+    this.closeResources(4001, 'Connection replaced')
     this.error = null
     this.update('signaling')
     const socket = createSocket()
@@ -196,11 +204,7 @@ export class DevelopmentConnection {
         this.state !== 'failed' &&
         this.disconnectionTimeout === null
       ) {
-        this.scheduleFailure(
-          peer,
-          'The peer connection was lost.',
-          DISCONNECTION_GRACE_PERIOD_MS,
-        )
+        this.scheduleDisconnect(peer, DISCONNECTION_GRACE_PERIOD_MS)
       }
     }
     peer.ondatachannel = ({ channel }) => this.attachChannel(channel, peer)
