@@ -39,6 +39,8 @@ class FakeWebSocket {
 
   readyState = 0
   closed = false
+  closeCode: number | undefined
+  closeReason: string | undefined
   sent: string[] = []
   onopen: ((event: Event) => void) | null = null
   onclose: ((event: CloseEvent) => void) | null = null
@@ -56,8 +58,10 @@ class FakeWebSocket {
     this.sent.push(message)
   }
 
-  close(): void {
+  close(code?: number, reason?: string): void {
     this.closed = true
+    this.closeCode = code
+    this.closeReason = reason
     this.readyState = 3
   }
 
@@ -161,6 +165,8 @@ describe('DevelopmentConnection lifecycle', () => {
 
     await connection.connect('desktop', code, 'ws://127.0.0.1:8787/signal')
     assert.equal(firstSocket.closed, true)
+    assert.equal(firstSocket.closeCode, 4001)
+    assert.equal(firstSocket.closeReason, 'Connection replaced')
     assert.equal(firstPeer.closed, true)
     assert.equal(connection.state, 'signaling')
 
@@ -187,6 +193,7 @@ describe('DevelopmentConnection lifecycle', () => {
     channel.emitClose()
     assert.equal(connection.state, 'disconnected')
     assert.equal(socket.closed, true)
+    assert.equal(socket.closeCode, 1000)
     assert.equal(peer.closed, true)
   })
 

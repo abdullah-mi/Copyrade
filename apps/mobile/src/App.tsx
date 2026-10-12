@@ -10,6 +10,9 @@ type ClipboardStatus = 'idle' | 'reading' | 'success' | 'error'
 type TransferStatus = 'idle' | 'sending' | 'success' | 'error'
 type AuthStatus = 'idle' | 'signing-in' | 'signing-out'
 type SocialProvider = 'github' | 'google'
+type TextSource = 'clipboard' | 'manual'
+
+const MANUAL_SEND_DELAY_MS = 1_000
 
 const AUTHORIZATION_HOSTS: Record<SocialProvider, string> = {
   github: 'github.com',
@@ -82,9 +85,14 @@ function App() {
   )
   const [transferStatus, setTransferStatus] = useState<TransferStatus>('idle')
   const [transferMessage, setTransferMessage] = useState(
-    'Connect to Windows and read clipboard text before sending.',
+    'Connect to a Windows device.',
   )
   const transferSender = useRef<TextTransferSender | null>(null)
+  const textSource = useRef<TextSource>('manual')
+  const transferInFlight = useRef(false)
+  const activeTransferText = useRef('')
+  const queuedTransferText = useRef('')
+  const lastSentText = useRef('')
 
   const refreshDevices = useCallback(async () => {
     const response = await fetch('/api/devices')
@@ -92,6 +100,33 @@ function App() {
     const body = (await response.json()) as { devices: RegisteredDevice[] }
     setDevices(body.devices)
     setDeviceMessage('')
+  }, [])
+
+  const sendText = useCallback((text: string, force = false) => {
+    if (text.length === 0 || (!force && text === lastSentText.current)) return false
+    if (connection.state !== 'connected') return false
+    if (transferInFlight.current) {
+      queuedTransferText.current = text
+      setTransferMessage('Waiting to send the latest changes...')
+      return false
+    }
+    if (!transferSender.current) return false
+
+    transferInFlight.current = true
+    activeTransferText.current = text
+    queuedTransferText.current = ''
+    setTransferStatus('sending')
+    setTransferMessage('Sending...')
+    try {
+      transferSender.current.sendText(text)
+      return true
+    } catch (error) {
+      transferInFlight.current = false
+      activeTransferText.current = ''
+      setTransferStatus('error')
+      setTransferMessage(error instanceof Error ? error.message : 'The transfer could not be sent.')
+      return false
+    }
   }, [])
 
   useEffect(() => {
@@ -236,31 +271,40 @@ function App() {
 
   useEffect(() => {
     function handleTransferResult(result: OutgoingTransferResult) {
+      const completedText = activeTransferText.current
+      activeTransferText.current = ''
+      transferInFlight.current = false
       if (result.ok) {
+        lastSentText.current = completedText
         setTransferStatus('success')
         setTransferMessage(
-          `Windows clipboard updated (${result.byteLength.toLocaleString()} bytes).`,
+          `Sent successfully at ${new Date().toLocaleTimeString()}.`,
         )
-        return
+      } else {
+        setTransferStatus('error')
+        switch (result.reason) {
+          case 'acknowledgement_size_mismatch':
+            setTransferMessage('Windows returned an acknowledgement with the wrong size.')
+            break
+          case 'connection_closed':
+            setTransferMessage('The connection closed before Windows acknowledged the transfer.')
+            break
+          case 'invalid_response':
+            setTransferMessage('Windows returned an invalid response.')
+            break
+          case 'remote_error':
+            setTransferMessage(result.remoteMessage ?? 'Windows rejected the transfer.')
+            break
+          case 'timeout':
+            setTransferMessage('Windows did not acknowledge the clipboard write in time.')
+            break
+        }
       }
 
-      setTransferStatus('error')
-      switch (result.reason) {
-        case 'acknowledgement_size_mismatch':
-          setTransferMessage('Windows returned an acknowledgement with the wrong size.')
-          break
-        case 'connection_closed':
-          setTransferMessage('The connection closed before Windows acknowledged the transfer.')
-          break
-        case 'invalid_response':
-          setTransferMessage('Windows returned an invalid response.')
-          break
-        case 'remote_error':
-          setTransferMessage(result.remoteMessage ?? 'Windows rejected the transfer.')
-          break
-        case 'timeout':
-          setTransferMessage('Windows did not acknowledge the clipboard write in time.')
-          break
+      const queuedText = queuedTransferText.current
+      queuedTransferText.current = ''
+      if (queuedText && queuedText !== completedText && connection.state === 'connected') {
+        queueMicrotask(() => sendText(queuedText))
       }
     }
 
@@ -283,7 +327,21 @@ function App() {
       sender.dispose()
       if (transferSender.current === sender) transferSender.current = null
     }
-  }, [])
+  }, [sendText])
+
+  useEffect(() => {
+    if (
+      textSource.current !== 'manual' ||
+      connectionState !== 'connected' ||
+      transferStatus === 'sending' ||
+      clipboardText.length === 0 ||
+      clipboardText === lastSentText.current
+    ) {
+      return
+    }
+    const timer = setTimeout(() => sendText(clipboardText), MANUAL_SEND_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [clipboardText, connectionState, sendText, transferStatus])
 
   async function handleConnect(deviceId: string) {
     setConnectionError('')
@@ -338,15 +396,24 @@ function App() {
     try {
       const text = await navigator.clipboard.readText()
 
+      textSource.current = 'clipboard'
       setClipboardText(text)
-      setTransferStatus('idle')
-      setTransferMessage('Clipboard text is ready to send after connecting to Windows.')
       setStatus('success')
       setStatusMessage(
         text.length > 0
           ? 'Clipboard text read successfully.'
           : 'The clipboard did not contain any text.',
       )
+      if (text.length > 0 && connection.state === 'connected') {
+        sendText(text, true)
+      } else {
+        setTransferStatus('idle')
+        setTransferMessage(
+          text.length > 0
+            ? 'Clipboard text is ready. Connect to Windows to send it.'
+            : 'Nothing was sent.',
+        )
+      }
     } catch (error: unknown) {
       setStatus('error')
       setStatusMessage(getClipboardErrorMessage(error))
@@ -354,6 +421,7 @@ function App() {
   }
 
   function handleClearPreview() {
+    textSource.current = 'manual'
     setClipboardText('')
     setStatus('idle')
     setStatusMessage('Type text below or read it from the clipboard.')
@@ -362,23 +430,20 @@ function App() {
   }
 
   function handleTextChange(value: string) {
+    textSource.current = 'manual'
     setClipboardText(value)
     setStatus(value.length > 0 ? 'success' : 'idle')
     setStatusMessage(value.length > 0 ? 'Text is ready to send.' : 'Enter text or read the clipboard.')
     setTransferStatus('idle')
-    setTransferMessage('Connect to Windows before sending.')
+    setTransferMessage(
+      connection.state === 'connected'
+        ? 'Waiting for you to finish typing...'
+        : 'Connect to Windows before sending.',
+    )
   }
 
-  function handleSendClipboard() {
-    try {
-      setTransferStatus('sending')
-      setTransferMessage('Waiting for Windows to update its clipboard...')
-      if (!transferSender.current) throw new Error('The transfer service is not ready.')
-      transferSender.current.sendText(clipboardText)
-    } catch (error) {
-      setTransferStatus('error')
-      setTransferMessage(error instanceof Error ? error.message : 'The transfer could not be sent.')
-    }
+  function handleTextBlur() {
+    if (textSource.current === 'manual') sendText(clipboardText)
   }
 
   async function handleSignIn(provider: SocialProvider) {
@@ -617,7 +682,9 @@ function App() {
             </ul>
           )}
           {deviceMessage && <p role="status">{deviceMessage}</p>}
-          <p role="status">DataChannel: {connectionState}</p>
+          <p role="status">
+            Connection: {connectionState === 'connected' ? 'Online' : 'Offline'}
+          </p>
           {connectionError && <p role="alert">{connectionError}</p>}
           {connectionState !== 'disconnected' && (
             <button
@@ -666,37 +733,19 @@ function App() {
             id="text-to-send"
             value={clipboardText}
             onChange={(event) => handleTextChange(event.target.value)}
+            onBlur={handleTextBlur}
             placeholder="Type text here or use Read clipboard"
             rows={6}
             maxLength={1024 * 1024}
-            disabled={transferStatus === 'sending'}
           />
         </section>
 
-        <button
-          type="button"
-          className="primary-button"
-          onClick={handleSendClipboard}
-          disabled={
-            connectionState !== 'connected' ||
-            clipboardText.length === 0 ||
-            transferStatus === 'sending'
-          }
-        >
-          {transferStatus === 'sending' ? 'Sending...' : 'Send to Windows'}
-        </button>
         <p
           className={`status status--${transferStatus}`}
           role="status"
           aria-live="polite"
         >
           {transferMessage}
-        </p>
-
-        <p className="privacy-note">
-          The text remains in this page's memory. When you choose to send it,
-          the text travels over the connected WebRTC DataChannel and is not sent
-          through the signaling server or stored by Copyrade.
         </p>
 
       </section>

@@ -62,6 +62,10 @@ export function isValidSignal(value: unknown): boolean {
   )
 }
 
+export function shouldNotifyPeerOnClose(code: number): boolean {
+  return code !== 4001
+}
+
 function attachment(socket: WebSocket): ConnectionAttachment | null {
   try {
     const value: unknown = socket.deserializeAttachment()
@@ -299,8 +303,9 @@ export class AccountCoordinator {
     this.safelySend(peer, message)
   }
 
-  webSocketClose(socket: WebSocket): void {
+  webSocketClose(socket: WebSocket, code: number): void {
     const own = attachment(socket)
+    if (!shouldNotifyPeerOnClose(code)) return
     const peer = this.peerFor(socket)
     if (peer) this.safelySend(peer, JSON.stringify({ type: 'left' }))
     if (own?.kind === 'presence') this.notifyObservers()
