@@ -110,5 +110,17 @@ device list for display data. A connection request succeeds only when the
 selected device is both owned by the signed-in account and currently online.
 No clipboard payload, SDP, or ICE candidate is sent over the presence channel.
 
+The image-acquisition diagnostic keeps pasted or explicitly selected images in browser memory only,
+reports only their type, dimensions, and size, and does not preview, upload, log,
+or persist the image. Image transfer remains unimplemented.
+
+Clipboard image representations and original files are different trust and
+fidelity boundaries. Safari may transcode a Photos asset before Copyrade can
+read it. Future clipboard-image transfer may preserve the bytes Copyrade
+receives, but must not claim to preserve an unavailable original encoding.
+Original-file transfer will require explicit selection, filename and MIME
+validation, integrity checking, bounded storage, and a deliberate Windows file
+destination or clipboard-file representation.
+
 This document describes intended guarantees. Features that are not implemented
 must remain labelled as planned in public documentation and UI.

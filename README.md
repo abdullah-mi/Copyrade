@@ -52,12 +52,15 @@ Copyrade is designed around a simpler model:
 | Account-scoped authenticated signaling | Validated on staging |
 | Persistent receiver presence and automatic connection requests | Validated on staging |
 | Automatic text send after clipboard read or completed edit | Validated on staging |
+| Unified iOS text, URL, and image acquisition | Validated on iPhone Safari; Photos supplies JPEG representations |
 | Chunked image transfer | Planned |
+| Original file transfer and PDF support | Planned |
 | Windows packaging and public alpha | Planned |
 
 The current mobile prototype includes:
 
-- user-initiated clipboard reading;
+- one user-initiated paste action that detects image, text, or URL content;
+- a conditional image-picker fallback when Safari cannot expose usable clipboard data;
 - secure-context and browser-capability detection;
 - loading, success, empty, and error states;
 - an editable, memory-only text field and clear action;
@@ -180,7 +183,7 @@ combined development command below performs this build automatically.
 npm run dev --workspace @copyrade/mobile
 ```
 
-Open the local address printed by Vite, copy some text, and select **Read clipboard**.
+Open the local address printed by Vite, copy some text, and select **Paste**.
 For the iPhone-to-Windows connection test, follow
 [`docs/connection-spike.md`](docs/connection-spike.md); the mobile page alone is
 not a deployed signaling service.
