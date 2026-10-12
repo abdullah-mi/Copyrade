@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent as ReactChangeEvent,
+  type ClipboardEvent as ReactClipboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
 import { TextTransferSender, type OutgoingTransferResult } from '@copyrade/transfer'
 import { authClient } from './auth-client'
@@ -13,6 +21,7 @@ type SocialProvider = 'github' | 'google'
 type TextSource = 'clipboard' | 'manual'
 
 const MANUAL_SEND_DELAY_MS = 1_000
+const MAX_DIAGNOSTIC_IMAGE_BYTES = 16 * 1024 * 1024
 
 const AUTHORIZATION_HOSTS: Record<SocialProvider, string> = {
   github: 'github.com',
@@ -58,12 +67,26 @@ function getAuthCallbackMessage(): string {
   }
 }
 
-function getClipboardErrorMessage(error: unknown): string {
-  if (error instanceof DOMException && error.name === 'NotAllowedError') {
-    return 'Clipboard access was not allowed. Try again and approve any paste prompt shown by your browser.'
-  }
+function formatImageSize(bytes: number): string {
+  if (bytes < 1_000_000) return `${Math.ceil(bytes / 1_000)} KB`
+  return `${(bytes / 1_000_000).toFixed(1)} MB`
+}
 
-  return 'Copyrade could not read the clipboard. Your browser may not support this feature.'
+function getImageDimensions(blob: Blob): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob)
+    const image = new Image()
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Image decoding failed'))
+    }
+    image.src = objectUrl
+  })
 }
 
 function App() {
@@ -81,8 +104,9 @@ function App() {
   const [clipboardText, setClipboardText] = useState('')
   const [status, setStatus] = useState<ClipboardStatus>('idle')
   const [statusMessage, setStatusMessage] = useState(
-    'Type text below or read it from the clipboard.',
+    'Type text below or paste from the clipboard.',
   )
+  const [showImagePicker, setShowImagePicker] = useState(false)
   const [transferStatus, setTransferStatus] = useState<TransferStatus>('idle')
   const [transferMessage, setTransferMessage] = useState(
     'Connect to a Windows device.',
@@ -93,6 +117,13 @@ function App() {
   const activeTransferText = useRef('')
   const queuedTransferText = useRef('')
   const lastSentText = useRef('')
+  const clipboardImage = useRef<Blob | null>(null)
+  const pasteRequestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearPasteRequestTimer() {
+    if (pasteRequestTimer.current) clearTimeout(pasteRequestTimer.current)
+    pasteRequestTimer.current = null
+  }
 
   const refreshDevices = useCallback(async () => {
     const response = await fetch('/api/devices')
@@ -377,63 +408,149 @@ function App() {
     }
   }
 
-  async function handleReadClipboard() {
+  async function inspectImage(blob: Blob) {
+    if (!blob.type.startsWith('image/') || blob.size === 0) {
+      throw new Error('Invalid image data')
+    }
+    if (blob.size > MAX_DIAGNOSTIC_IMAGE_BYTES) {
+      clipboardImage.current = null
+      setStatus('error')
+      setStatusMessage('The image is larger than 16 MB.')
+      return
+    }
+
+    const dimensions = await getImageDimensions(blob)
+    clipboardImage.current = blob
+    textSource.current = 'manual'
+    setClipboardText('')
+    setShowImagePicker(false)
+    setStatus('success')
+    setStatusMessage(
+      `${blob.type} · ${dimensions.width.toLocaleString()} × ${dimensions.height.toLocaleString()} · ${formatImageSize(blob.size)}`,
+    )
+    setTransferStatus('idle')
+    setTransferMessage('Image transfer is not implemented yet.')
+  }
+
+  function acceptPastedText(text: string) {
+    clipboardImage.current = null
+    textSource.current = 'clipboard'
+    setClipboardText(text)
+    setShowImagePicker(false)
+    setStatus('success')
+    setStatusMessage('Clipboard text read successfully.')
+    if (connection.state === 'connected') {
+      sendText(text, true)
+    } else {
+      setTransferStatus('idle')
+      setTransferMessage('Clipboard text is ready. Connect to Windows to send it.')
+    }
+  }
+
+  async function handlePaste(event: ReactClipboardEvent<HTMLDivElement>) {
+    event.preventDefault()
+    clearPasteRequestTimer()
+    const data = event.clipboardData
+    const image = [...data.files].find((candidate) => candidate.type.startsWith('image/'))
+      ?? [...data.items]
+        .find((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        ?.getAsFile()
+
+    if (image) {
+      setStatus('reading')
+      setStatusMessage('Reading image...')
+      try {
+        await inspectImage(image)
+      } catch {
+        clipboardImage.current = null
+        setShowImagePicker(true)
+        setStatus('error')
+        setStatusMessage('Could not read the clipboard image.')
+      }
+      return
+    }
+
+    const text = data.getData('text/plain').trim()
+      || data.getData('text/uri-list').trim()
+    if (text) {
+      acceptPastedText(text)
+      return
+    }
+
+    const containsFile = [...data.files].length > 0
+      || [...data.items].some((item) => item.kind === 'file')
+    clipboardImage.current = null
+    setShowImagePicker(true)
+    setStatus('error')
+    setStatusMessage(
+      containsFile
+        ? 'This clipboard file type is not supported.'
+        : 'Could not read the clipboard.',
+    )
+  }
+
+  async function handleImageSelection(event: ReactChangeEvent<HTMLInputElement>) {
+    clearPasteRequestTimer()
+    const input = event.currentTarget
+    const image = input.files?.[0]
+    input.value = ''
+    if (!image) return
+
+    setStatus('reading')
+    setStatusMessage('Reading image...')
+    try {
+      await inspectImage(image)
+    } catch {
+      clipboardImage.current = null
+      setStatus('error')
+      setStatusMessage('Could not read the selected image.')
+    }
+  }
+
+  function handlePasteRequest() {
     if (!window.isSecureContext) {
       setStatus('error')
       setStatusMessage('Clipboard access requires HTTPS or localhost.')
       return
     }
 
-    if (!navigator.clipboard?.readText) {
-      setStatus('error')
-      setStatusMessage('This browser does not support reading clipboard text.')
-      return
-    }
-
+    clearPasteRequestTimer()
     setStatus('reading')
-    setStatusMessage('Waiting for clipboard access...')
-
-    try {
-      const text = await navigator.clipboard.readText()
-
-      textSource.current = 'clipboard'
-      setClipboardText(text)
-      setStatus('success')
-      setStatusMessage(
-        text.length > 0
-          ? 'Clipboard text read successfully.'
-          : 'The clipboard did not contain any text.',
-      )
-      if (text.length > 0 && connection.state === 'connected') {
-        sendText(text, true)
-      } else {
-        setTransferStatus('idle')
-        setTransferMessage(
-          text.length > 0
-            ? 'Clipboard text is ready. Connect to Windows to send it.'
-            : 'Nothing was sent.',
-        )
-      }
-    } catch (error: unknown) {
+    setStatusMessage('Choose Paste to read the clipboard.')
+    pasteRequestTimer.current = setTimeout(() => {
+      pasteRequestTimer.current = null
       setStatus('error')
-      setStatusMessage(getClipboardErrorMessage(error))
-    }
+      setStatusMessage('Paste was cancelled.')
+    }, 8_000)
+    document.execCommand('paste')
+  }
+
+  function handlePasteKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    handlePasteRequest()
   }
 
   function handleClearPreview() {
+    clearPasteRequestTimer()
+    clipboardImage.current = null
     textSource.current = 'manual'
     setClipboardText('')
+    setShowImagePicker(false)
     setStatus('idle')
-    setStatusMessage('Type text below or read it from the clipboard.')
+    setStatusMessage('Type text below or paste from the clipboard.')
     setTransferStatus('idle')
-    setTransferMessage('Connect to Windows and read clipboard text before sending.')
+    setTransferMessage('Connect to Windows before sending text.')
   }
 
   function handleTextChange(value: string) {
+    clearPasteRequestTimer()
+    clipboardImage.current = null
     textSource.current = 'manual'
     setClipboardText(value)
+    setShowImagePicker(false)
     setStatus(value.length > 0 ? 'success' : 'idle')
-    setStatusMessage(value.length > 0 ? 'Text is ready to send.' : 'Enter text or read the clipboard.')
+    setStatusMessage(value.length > 0 ? 'Text is ready to send.' : 'Enter or paste text.')
     setTransferStatus('idle')
     setTransferMessage(
       connection.state === 'connected'
@@ -701,14 +818,22 @@ function App() {
         </section>
 
         <div className="actions">
-          <button
-            type="button"
-            className="primary-button"
-            onClick={handleReadClipboard}
-            disabled={status === 'reading' || transferStatus === 'sending'}
+          <div
+            className="paste-target"
+            contentEditable
+            role="button"
+            tabIndex={0}
+            inputMode="none"
+            aria-label="Paste from the clipboard"
+            aria-readonly="true"
+            suppressContentEditableWarning
+            onBeforeInput={(event) => event.preventDefault()}
+            onClick={handlePasteRequest}
+            onKeyDown={handlePasteKeyDown}
+            onPaste={(event) => void handlePaste(event)}
           >
-            {status === 'reading' ? 'Reading…' : 'Read clipboard'}
-          </button>
+            Paste
+          </div>
 
           <button
             type="button"
@@ -719,13 +844,24 @@ function App() {
               (clipboardText.length === 0 && status === 'idle')
             }
           >
-            Clear text
+            Clear
           </button>
         </div>
 
         <p className={`status status--${status}`} role="status" aria-live="polite">
           {statusMessage}
         </p>
+
+        {showImagePicker && (
+          <label className="file-picker secondary-button">
+            Choose image
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => void handleImageSelection(event)}
+            />
+          </label>
+        )}
 
         <section className="preview" aria-labelledby="text-to-send-label">
           <label id="text-to-send-label" htmlFor="text-to-send">Text to send</label>
@@ -734,7 +870,7 @@ function App() {
             value={clipboardText}
             onChange={(event) => handleTextChange(event.target.value)}
             onBlur={handleTextBlur}
-            placeholder="Type text here or use Read clipboard"
+            placeholder="Type or paste text here"
             rows={6}
             maxLength={1024 * 1024}
           />
