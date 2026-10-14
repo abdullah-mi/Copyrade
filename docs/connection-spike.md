@@ -1,5 +1,9 @@
 # Development connection and text-transfer slice
 
+> **Experimental and unauthenticated:** This is a local room-code diagnostic,
+> not the hosted account/device flow. Use synthetic content only. For the
+> recommended staging path, start with [`getting-started.md`](getting-started.md).
+
 This development slice tests whether iPhone Safari can open a WebRTC DataChannel
 to the Windows Electron renderer, send bounded text, update the native Windows
 clipboard, and receive a matching acknowledgement. It does not authenticate

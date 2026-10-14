@@ -1,245 +1,152 @@
 # Copyrade
 
-**Private, direct clipboard continuity from mobile devices to Windows.**
+<sub>Your clipboard comrade.</sub>
 
-Copyrade is a mobile-to-Windows clipboard application designed to make moving text and images between personal devices fast and effortless. Copy content on a phone, send it to a registered computer, and paste it immediately in Windows—without using email, messaging apps, or cloud clipboard storage.
+<p align="center">
+  <a href="https://copyrade-staging.abdullahijaz-m.workers.dev"><img alt="Open the Copyrade web app" src="https://img.shields.io/badge/web%20app-open-F38020?logo=cloudflare&amp;logoColor=white"></a><br>
+  <a href="docs/getting-started.md"><img alt="Windows receiver: build from source" src="https://img.shields.io/badge/Windows%20receiver-source%20build-0078D4?logo=windows11&amp;logoColor=white"></a>
+  <a href="docs/compatibility.md"><img alt="Project status: early development" src="https://img.shields.io/badge/status-early%20development-D97706"></a>
+  <a href="LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-D22128?logo=apache&amp;logoColor=white"></a><br>
+  <a href="docs/architecture.md"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&amp;logoColor=white"></a>
+  <a href="docs/architecture.md"><img alt="React" src="https://img.shields.io/badge/React-61DAFB?logo=react&amp;logoColor=111111"></a>
+  <a href="docs/architecture.md"><img alt="Electron" src="https://img.shields.io/badge/Electron-47848F?logo=electron&amp;logoColor=white"></a>
+  <a href="docs/architecture.md"><img alt="WebRTC" src="https://img.shields.io/badge/WebRTC-333333?logo=webrtc&amp;logoColor=white"></a>
+  <a href="docs/architecture.md"><img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&amp;logoColor=white"></a>
+</p>
 
-> **Status:** Early development. The authenticated iPhone-to-Windows text path, account sign-in, browser-approved device enrollment, account-scoped signaling, native clipboard write, and delivery acknowledgement have been validated on staging.
+**Copy on your phone. Paste on Windows.**
 
-**Hosted staging web client:** [copyrade-staging.abdullahijaz-m.workers.dev](https://copyrade-staging.abdullahijaz-m.workers.dev)
+Copyrade sends text from your phone to your Windows clipboard. No messaging
+yourself, file uploads, or cloud clipboard history.
 
-The hosted client is an early testing deployment. It currently requires
-the Windows receiver to be run from this repository.
+### [Open Copyrade on the web →](https://copyrade-staging.abdullahijaz-m.workers.dev)
 
-## How it will work
+[Setup guide](docs/getting-started.md) ·
+[Compatibility and tested devices](docs/compatibility.md)
 
-1. Copy text or an image on a mobile device.
-2. Open the Copyrade PWA and choose a registered Windows computer.
-3. Send the clipboard through a direct WebRTC connection.
-4. Paste it immediately in Windows with `Ctrl+V`.
+> **Early development:** Phone-to-Windows text transfer is working. The Windows
+> receiver must currently be built from source; a downloadable app is planned.
 
-The sender receives confirmation after the Windows application successfully updates the native clipboard.
+## How it works
 
-## Why Copyrade?
+1. **Copy** or type text on your phone.
+2. **Send** it to a registered Windows PC through Copyrade.
+3. **Paste** anywhere in Windows with `Ctrl+V`.
 
-Moving small pieces of content between mobile devices and Windows often involves an unnecessary intermediate step: sending a message to yourself, uploading a file, or relying on a cloud clipboard history.
+Copyrade reports delivery only after the Electron app completes the native
+Windows clipboard write.
 
-Copyrade is designed around a simpler model:
+## Features
 
-- **Clipboard-first:** received content is written directly to the Windows clipboard.
-- **Peer-to-peer:** clipboard payloads travel between devices through WebRTC whenever a direct connection is available.
-- **Private by design:** Copyrade infrastructure coordinates devices without storing clipboard contents.
-- **Cross-network:** devices connect through authenticated signaling instead of relying on local-network discovery.
-- **Extensible:** the protocol is designed to support multiple clipboard representations, beginning with plain text and PNG images.
+| Feature | Status |
+| --- | --- |
+| iPhone Safari → Windows text transfer | Working |
+| Google/GitHub sign-in and Windows device enrollment | Working |
+| PC online status, automatic reconnection, and remote device removal | Working |
+| Windows clipboard updates with delivery confirmation | Working |
+| Browser acquisition of text, URLs, JPEG, and PNG representations | Working |
+| Image delivery to the Windows clipboard | In development |
+| Downloadable Windows app and broader compatibility | Planned |
 
-## Development status
+These working features have been verified in the environments recorded in the
+[compatibility evidence](docs/compatibility.md); broader device and network
+coverage is still in progress.
 
-| Component | Status |
-|---|---|
-| React + TypeScript mobile interface | In progress |
-| Plain-text clipboard capability prototype | Complete |
-| Real-device iPhone text clipboard diagnostic | Complete |
-| Electron Windows clipboard-write diagnostic | Complete |
-| Versioned text transfer protocol | Complete |
-| Development signaling and WebRTC DataChannel spike | Connected in one iPhone-to-Windows cross-network test; unauthenticated |
-| WebRTC text transfer and delivery acknowledgement | Validated through authenticated staging flow |
-| Transfer coordination and failure-path tests | Complete for the text slice |
-| Cloudflare control-plane foundation | Deployed to staging |
-| Google/GitHub authentication backend | Complete for staging |
-| Account-gated mobile flow | Complete for staging |
-| Browser-approved Windows device enrollment | Complete for staging |
-| Registered-device discovery | Complete for staging |
-| Account-scoped authenticated signaling | Validated on staging |
-| Persistent receiver presence and automatic connection requests | Validated on staging |
-| Automatic text send after clipboard read or completed edit | Validated on staging |
-| Unified iOS text, URL, and image acquisition | Validated on iPhone Safari; Photos supplies JPEG representations |
-| Chunked image transfer | Planned |
-| Original file transfer and PDF support | Planned |
-| Windows packaging and public alpha | Planned |
+## Why Copyrade
 
-The current mobile prototype includes:
-
-- one user-initiated paste action that detects image, text, or URL content;
-- a conditional image-picker fallback when Safari cannot expose usable clipboard data;
-- secure-context and browser-capability detection;
-- loading, success, empty, and error states;
-- an editable, memory-only text field and clear action;
-- responsive, keyboard-accessible UI;
-- ESLint and TypeScript validation with a reproducible Vite build.
-
-The Windows diagnostic includes:
-
-- an isolated Electron renderer with Node.js integration disabled;
-- a narrow preload API for text clipboard writes;
-- main-process sender, type, and size validation;
-- acknowledgement only after the native clipboard write completes;
-- automated validation tests without clipboard-content logging.
-
-Real-device testing confirmed text clipboard access in iPhone Safari. Safari
-requires the user to approve its native paste action for clipboard reads, which
-is a documented platform limitation of the web client.
-
-Real-device testing also confirmed manually entered text and clipboard-read text
-can travel over the WebRTC DataChannel, update the Windows clipboard through the
-validated Electron boundary, and produce a matching acknowledgement on the
-phone. The hosted account-scoped replacement has now passed the same connection,
-native clipboard-write, acknowledgement, disconnect, and revocation checks with
-synthetic data.
-
-The hosted staging app provides Google and GitHub sign-in, links identities only
-when the providers return the same verified email address, and restores an
-active session when the user returns. The browser-approved device credential
-authorizes the desktop receiver. Short-lived, single-use signaling tickets
-restrict both peers to the selected device and account.
-
-The initial text-transfer message contract is documented in
-[`docs/protocol.md`](docs/protocol.md). Recorded test environments and remaining
-coverage are tracked in [`docs/compatibility.md`](docs/compatibility.md).
-
-## Architecture
-
-Copyrade separates device coordination from clipboard delivery. The backend acts as a control plane for accounts, registered devices, presence, and WebRTC signaling. Clipboard payloads use a separate peer-to-peer data plane.
-
-```mermaid
-flowchart LR
-    Mobile[Mobile PWA<br/>React + TypeScript]
-    Control[Control plane<br/>Authentication<br/>Device registry<br/>Presence and signaling]
-    Desktop[Windows receiver<br/>Electron + React + TypeScript]
-
-    Mobile <-->|Authenticated HTTPS / WSS| Control
-    Desktop <-->|Authenticated HTTPS / WSS| Control
-    Mobile <-->|Encrypted WebRTC DataChannel<br/>Clipboard payloads| Desktop
-```
-
-### Privacy model
-
-Copyrade is being designed so that its backend handles only the metadata required to authenticate users, discover their devices, report presence, and establish peer connections. Clipboard contents are not intended to be stored, queued, or added to a cloud history.
-
-The Windows application will isolate privileged clipboard access inside Electron's main process and expose only a narrow, validated interface to the renderer. Transfer acknowledgements will represent a successful native clipboard write—not merely receipt of a network message.
-
-## Technology
-
-| Area | Technology |
-|---|---|
-| Mobile client | React, TypeScript, Vite; PWA packaging planned |
-| Windows client | Electron, React, TypeScript |
-| Peer-to-peer transport | WebRTC DataChannel |
-| Device coordination | Authenticated WebSocket signaling |
-| Shared protocol | Versioned, runtime-validated TypeScript messages |
-| Hosting | Cloudflare Workers Static Assets, Workers, Durable Objects, and D1 |
-| Distribution | GitHub Releases |
-
-The desktop, signaling, protocol, and hosting choices will be validated through working prototypes before the public alpha.
-
-## Repository structure
-
-```text
-copyrade/
-|-- apps/
-|   |-- control/         # Cloudflare-hosted API and mobile web assets
-|   |-- desktop/         # Electron clipboard-write diagnostic
-|   |-- mobile/          # React clipboard-read diagnostic
-|   `-- signal/          # Local development-only signaling
-|-- packages/
-|   |-- connection/      # Shared browser WebRTC connection service
-|   |-- protocol/        # Versioned, runtime-validated transfer messages
-|   `-- transfer/        # Framework-neutral transfer and ACK coordination
-|-- package-lock.json    # Single reproducible dependency lockfile
-|-- package.json         # npm workspace commands
-|-- .gitignore
-`-- README.md
-```
-
-The local signaling spike is documented in
-[`docs/connection-spike.md`](docs/connection-spike.md). The selected production
-design and its trust boundaries are documented in
-[`docs/architecture.md`](docs/architecture.md) and
-[`docs/security.md`](docs/security.md).
+- **Private by design:** Copyrade does not upload clipboard contents to its
+  backend or maintain a cloud clipboard history.
+- **Approved devices:** account sign-in, browser-approved enrollment, and
+  revocable device credentials control which PCs can receive content.
+- **Encrypted transport:** clipboard payloads travel over an encrypted WebRTC
+  DataChannel; the backend coordinates the connection.
+- **Meaningful confirmation:** the sender receives an acknowledgement after
+  Windows updates its clipboard, not merely after a network packet arrives.
 
 ## Getting started
 
+Copyrade is not yet available as a downloadable Windows app. For now, you can
+try it by running the Windows receiver from source. This takes a few commands
+in PowerShell or another terminal.
+
 ### Requirements
 
-- Node.js and npm
-- A modern browser with Clipboard API support
+- Windows;
+- [Node.js 24 or later](https://nodejs.org/en/download) (the installer includes npm);
+- [Git](https://git-scm.com/downloads);
+- a Google or GitHub account for sign-in.
 
-The current prototype has been tested with Node.js `24.20.0` and npm `11.19.0`.
-
-From the repository root, install dependencies and build the shared packages
-before starting either app directly on a fresh checkout:
+Clone the project, install its dependencies, build the shared packages, and
+start the receiver:
 
 ```bash
+git clone https://github.com/abdullah-mi/Copyrade.git
+cd Copyrade
 npm ci
 npm run build:shared
-```
-
-The apps import the shared packages from generated `dist/` files. `npm ci` does
-not build them; rerun `npm run build:shared` after changing shared code. The
-combined development command below performs this build automatically.
-
-### Run the mobile client
-
-```bash
-npm run dev --workspace @copyrade/mobile
-```
-
-Open the local address printed by Vite, copy some text, and select **Paste**.
-For the iPhone-to-Windows connection test, follow
-[`docs/connection-spike.md`](docs/connection-spike.md); the mobile page alone is
-not a deployed signaling service.
-
-### Run the development connection
-
-After installing dependencies, start signaling, the mobile client, and Electron
-together:
-
-```bash
-npm run dev:connection
-```
-
-The command labels output from each process and stops the other processes when
-one exits. Cross-device testing still requires an HTTPS route to Vite; see the
-connection-spike guide. This mode is unauthenticated and must use synthetic data.
-
-### Run the control-plane foundation
-
-```bash
-npm run dev:control
-```
-
-This builds the mobile assets once, then starts the Cloudflare Worker locally on
-port `8788` and Vite on port `5173`. Vite proxies `/api` requests to the local
-Worker. Before using local sign-in for the first time, create a private
-`apps/control/.dev.vars` file and apply the local D1 migration as described in
-[`apps/control/README.md`](apps/control/README.md).
-
-### Run the desktop diagnostic
-
-```bash
 npm start --workspace @copyrade/desktop
 ```
 
-Enter synthetic text, write it to the Windows clipboard, and paste it into
-Notepad to confirm the native operation.
+The receiver connects to Copyrade's hosted service. The first time it runs,
+choose **Register this PC**; Copyrade opens the web app so you can sign in and
+approve the device. Then open [Copyrade](https://copyrade-staging.abdullahijaz-m.workers.dev)
+on your phone, select the online PC, connect, and paste your clipboard.
 
-### Validate changes
+For the unauthenticated local room-code diagnostic, HTTPS phone access,
+individual workspace commands, or local control-plane setup, use the
+[developer getting-started guide](docs/getting-started.md).
 
-```bash
-npm run check
+## Privacy and architecture
+
+```mermaid
+flowchart LR
+    Phone[Mobile web app]
+    Cloud[Cloudflare<br/>accounts, devices, presence, signaling]
+    PC[Windows receiver]
+
+    Phone <-->|HTTPS / WSS metadata| Cloud
+    PC <-->|HTTPS / WSS metadata| Cloud
+    Phone <-->|Encrypted WebRTC DataChannel<br/>clipboard text| PC
 ```
+
+- Copyrade uses Cloudflare to handle accounts, device pairing, online status,
+  and connection setup.
+- Clipboard content travels between devices over an encrypted WebRTC
+  DataChannel. It is not stored in Copyrade's backend or in a cloud clipboard
+  history.
+- Connections may fail on restrictive networks because TURN relay fallback is
+  not yet implemented.
+
+Read the full [architecture](docs/architecture.md) and
+[security and privacy boundaries](docs/security.md).
 
 ## Roadmap
 
-1. Finish the reliable, documented text alpha and compatibility checks.
-2. Harden reconnect behavior and add clearer connection diagnostics across more networks.
-3. Add tray/startup behavior and prepare the persistent Windows receiver for packaging.
-4. Validate image clipboard behavior and add bounded, chunked PNG transfer.
-5. Harden packaging and publish the first documented Windows alpha.
+- [Image transfer](https://github.com/abdullah-mi/Copyrade/milestone/2): deliver
+  bounded JPEG and PNG representations to the Windows image clipboard.
+- Expand reconnect, sleep/wake, and cross-network compatibility testing.
+- [Windows alpha](https://github.com/abdullah-mi/Copyrade/milestone/3): add
+  receiver lifecycle behavior and package the first signed Windows build.
+- Design bounded temporary storage before adding original-file or PDF transfer.
+
+## Documentation
+
+- [Developer getting started](docs/getting-started.md)
+- [Architecture](docs/architecture.md)
+- [Security and privacy](docs/security.md)
+- [Compatibility evidence](docs/compatibility.md)
+- [Text transfer protocol](docs/protocol.md)
+- [Unauthenticated development connection](docs/connection-spike.md)
+- [Architecture decisions](docs/decisions)
 
 ## Contributing
 
-Copyrade is currently under active foundational development. Bug reports and technical feedback are welcome through GitHub Issues. Contribution guidance will be added once the initial architecture and development workflow have stabilized.
+Bug reports, technical feedback, documentation improvements, and focused pull
+requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a
+pull request.
 
 ## License
 
-No open-source license has been selected yet.
+Copyright © 2026 Abdullah ([abdullah-mi](https://github.com/abdullah-mi)). Copyrade is licensed under the
+[Apache License 2.0](LICENSE). Forks and redistributions must preserve the
+license and required attribution notices.

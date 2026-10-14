@@ -1,11 +1,15 @@
 # Copyrade Data Protocol
 
-Status: development protocol for the text-transfer proof  
-Current version: `1`
+- Status: implemented development protocol for text transfer
+- Current version: `1`
 
 Copyrade uses these messages for clipboard payload delivery over a WebRTC
 DataChannel. Signaling messages are a separate control-plane concern and are not
 defined here.
+
+Version 1 is used by both the local diagnostic and authenticated staging path.
+It does not support image bytes, files, multiple clipboard representations, or
+chunked transfers.
 
 The runtime implementation and validation tests live in
 `packages/protocol`. This document records the intended semantics.

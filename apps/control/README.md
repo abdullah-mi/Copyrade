@@ -1,8 +1,13 @@
 # Copyrade Control Plane
 
-This Cloudflare Worker will serve the mobile React build and provide Copyrade's
-authenticated control plane. Its intended responsibilities are account sessions,
-registered devices, revocation, presence, and WebRTC signaling.
+For repository installation, the authenticated staging workflow, and the local
+room-code diagnostic, start with the
+[developer getting-started guide](../../docs/getting-started.md). This file
+focuses on operating the Cloudflare control plane.
+
+This Cloudflare Worker serves the mobile React build and provides Copyrade's
+authenticated control plane: account sessions, registered devices, revocation,
+presence, and WebRTC signaling.
 
 Clipboard payloads must not pass through this service. They remain on the WebRTC
 DataChannel between the mobile client and Windows receiver.

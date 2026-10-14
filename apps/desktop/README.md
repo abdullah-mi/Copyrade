@@ -1,20 +1,16 @@
-# Copyrade Desktop Diagnostic
+# Copyrade Windows receiver
 
-This Electron application proves that Copyrade can safely request a text write
-from an isolated React renderer and complete it through Electron's main process
-on the Windows clipboard.
+This Electron/React app registers a Windows PC to a Copyrade account, maintains
+receiver presence, accepts authenticated WebRTC connection requests, validates
+text transfers, writes them to the native Windows clipboard, and returns a
+matching acknowledgement.
 
-It also implements the first account-device boundary: the desktop requests a
-short-lived registration code, opens the hosted Copyrade app for signed-in
-approval, and encrypts the resulting device credential with Electron
-`safeStorage`. The credential is never exposed to the React renderer.
-The main process validates it at startup and periodically while the application
-is open, so account-side revocation clears the local registration state.
-For connections, the main process exchanges that credential for a short-lived
-signaling ticket. Only the ticket is exposed to the renderer; the long-lived
-credential remains behind the preload boundary.
+Copyrade is not yet available as a downloadable Windows app. For now, this
+source-run receiver provides the complete authenticated text-transfer path.
 
-## Run locally
+## Run from source
+
+From the repository root:
 
 ```powershell
 npm ci
@@ -22,31 +18,27 @@ npm run build:shared
 npm start --workspace @copyrade/desktop
 ```
 
-Run these commands from the repository root. The desktop startup script builds
-the desktop app, but not its shared dependencies.
+The app uses the hosted Copyrade service by default. Registration opens a
+browser approval flow; the issued device credential is encrypted with Electron
+`safeStorage` and remains in the main process.
 
-Enter synthetic text, select **Write to Windows clipboard**, and paste into
-Notepad. The application reports success only after Electron acknowledges the
-native clipboard write.
-
-## Security boundary
-
-- Node.js integration is disabled in the React renderer.
-- Context isolation and Chromium renderer sandboxing are enabled.
-- The preload bridge exposes narrow typed clipboard and device-enrollment
-  operations rather than Electron's general IPC APIs.
-- The main process verifies the requesting frame and validates the payload type
-  and size before performing the privileged operation.
-- Clipboard contents are not logged, persisted, or sent over the network.
-
-This is a development capability diagnostic, not a packaged Copyrade release.
-Its text-write path was manually verified against the Windows clipboard and
-Notepad on September 21, 2026.
-
-By default, enrollment uses the staging control plane. Local Worker testing can
-override it before starting Electron:
+For a local Worker override:
 
 ```powershell
 $env:COPYRADE_CONTROL_URL = "http://127.0.0.1:8788"
 npm start --workspace @copyrade/desktop
 ```
+
+## Privileged boundary
+
+- Node.js integration is disabled; context isolation and renderer sandboxing
+  are enabled.
+- The preload bridge exposes narrow typed operations, not general Electron IPC.
+- The main process checks the requesting frame and validates text type and size
+  before writing to the clipboard.
+- The receiver acknowledges a transfer only after the native write completes.
+- Clipboard content is not logged or persisted by Copyrade.
+
+Image clipboard writes, tray/startup behavior, and Windows packaging remain
+planned. See the [developer guide](../../docs/getting-started.md) and
+[security boundaries](../../docs/security.md).

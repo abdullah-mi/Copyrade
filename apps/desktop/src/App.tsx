@@ -15,7 +15,7 @@ function App() {
   const [text, setText] = useState('')
   const [status, setStatus] = useState<WriteStatus>('idle')
   const [statusMessage, setStatusMessage] = useState(
-    'Enter synthetic test text, then write it to the Windows clipboard.',
+    'Enter text to test the Windows clipboard.',
   )
   const [deviceName, setDeviceName] = useState('Windows PC')
   const [enrollmentState, setEnrollmentState] = useState<EnrollmentState>('loading')
@@ -203,9 +203,7 @@ function App() {
   function handleTextChange(value: string) {
     setText(value)
     setStatus('idle')
-    setStatusMessage(
-      'Enter synthetic test text, then write it to the Windows clipboard.',
-    )
+    setStatusMessage('Enter text to test the Windows clipboard.')
   }
 
   function scheduleEnrollmentPoll(intervalSeconds: number) {
@@ -288,7 +286,7 @@ function App() {
           </p>
         </section>
 
-        <label htmlFor="clipboard-text">Synthetic test text</label>
+        <label htmlFor="clipboard-text">Clipboard test</label>
         <textarea
           id="clipboard-text"
           value={text}

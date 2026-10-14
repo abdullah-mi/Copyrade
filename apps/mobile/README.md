@@ -1,12 +1,27 @@
-# Copyrade Mobile Diagnostic
+# Copyrade mobile web client
 
-This React and TypeScript application validates user-initiated clipboard text
-reading in the browsers targeted by Copyrade's sender experience.
+This React/Vite app is Copyrade's phone-facing sender and browser account UI. In
+the hosted staging flow it provides Google/GitHub sign-in, device enrollment
+approval, registered-device status, authenticated WebRTC connection requests,
+and text delivery to Windows.
+
+## Current clipboard behavior
+
+- A user-initiated **Paste** action distinguishes text, URLs, and decodable
+  image representations.
+- Clipboard text sends automatically after a connection is established. Manual
+  edits send after a short idle delay or when the field loses focus.
+- The sender reports success only after the Windows native clipboard write ACK.
+- Images up to 16 MiB can be inspected in memory for type, dimensions, and size,
+  with an explicit image-picker fallback. Image delivery is not implemented.
+- Clipboard contents and acquired image bytes are not logged or persisted.
+
+iPhone Safari may show its native Paste callout and may expose Photos content as
+a transcoded JPEG even when the original asset used another format.
 
 ## Run locally
 
-Install the repository dependencies from the Copyrade root, then start the
-mobile workspace:
+From the repository root:
 
 ```powershell
 npm ci
@@ -14,23 +29,7 @@ npm run build:shared
 npm run dev --workspace @copyrade/mobile
 ```
 
-Run these commands from the repository root. The shared packages must be built
-after a fresh install because the app imports their generated files.
-
-Open the address printed by Vite and select **Read clipboard** after copying
-harmless test text.
-
-## Verified behavior
-
-- Clipboard text remains in page memory and is not logged or persisted.
-- Clipboard access is rejected outside HTTPS or localhost.
-- The interface reports unsupported, denied, empty, successful, and failed reads.
-- Real-device testing confirmed text reads in iPhone Safari over HTTPS.
-- Real-device testing confirmed text delivery to the Windows receiver and a
-  matching native-write acknowledgement over a WebRTC DataChannel.
-
-Safari requires the user to choose its native **Paste** action before a website
-can read clipboard content copied from another application. The web client
-cannot persist clipboard-read permission or bypass this platform control.
-
-This is a development capability diagnostic, not the finished Copyrade sender.
+Localhost can exercise UI and clipboard acquisition. Phone access requires
+HTTPS, and a complete connection also requires either the authenticated control
+plane or the development signaling process. See the
+[developer guide](../../docs/getting-started.md).
