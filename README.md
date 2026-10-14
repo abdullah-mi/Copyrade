@@ -1,9 +1,9 @@
-# Copyrade
+<h1 align="center">Copyrade</h1>
 
-<sub>Your clipboard comrade.</sub>
+<p align="center"><sub>Your clipboard comrade.</sub></p>
 
 <p align="center">
-  <a href="https://copyrade-staging.abdullahijaz-m.workers.dev"><img alt="Open the Copyrade web app" src="https://img.shields.io/badge/web%20app-open-F38020?logo=cloudflare&amp;logoColor=white"></a><br>
+  <a href="https://copyrade-staging.abdullahijaz-m.workers.dev"><img alt="Copyrade web app: online" src="https://img.shields.io/badge/web%20app-online-2EA44F?logo=cloudflare&amp;logoColor=white"></a><br>
   <a href="docs/getting-started.md"><img alt="Windows receiver: build from source" src="https://img.shields.io/badge/Windows%20receiver-source%20build-0078D4?logo=windows11&amp;logoColor=white"></a>
   <a href="docs/compatibility.md"><img alt="Project status: early development" src="https://img.shields.io/badge/status-early%20development-D97706"></a>
   <a href="LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-D22128?logo=apache&amp;logoColor=white"></a><br>
@@ -19,7 +19,7 @@
 Copyrade sends text from your phone to your Windows clipboard. No messaging
 yourself, file uploads, or cloud clipboard history.
 
-### [Open Copyrade on the web →](https://copyrade-staging.abdullahijaz-m.workers.dev)
+### [Launch Copyrade →](https://copyrade-staging.abdullahijaz-m.workers.dev)
 
 [Setup guide](docs/getting-started.md) ·
 [Compatibility and tested devices](docs/compatibility.md)
@@ -48,9 +48,8 @@ Windows clipboard write.
 | Image delivery to the Windows clipboard | In development |
 | Downloadable Windows app and broader compatibility | Planned |
 
-These working features have been verified in the environments recorded in the
-[compatibility evidence](docs/compatibility.md); broader device and network
-coverage is still in progress.
+See [compatibility](docs/compatibility.md) for verified devices and connection
+help, or [report a problem](https://github.com/abdullah-mi/Copyrade/issues/new).
 
 ## Why Copyrade
 
@@ -147,6 +146,6 @@ pull request.
 
 ## License
 
-Copyright © 2026 Abdullah ([abdullah-mi](https://github.com/abdullah-mi)). Copyrade is licensed under the
+Copyright © 2026 Abdullah Ijaz. Copyrade is licensed under the
 [Apache License 2.0](LICENSE). Forks and redistributions must preserve the
 license and required attribution notices.
