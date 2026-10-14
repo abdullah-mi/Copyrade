@@ -4,6 +4,19 @@ This file records observed Copyrade behavior without treating planned support as
 verified support. Test content must be synthetic, and clipboard contents must
 not be copied into this document or logs.
 
+## Tested at a glance
+
+| Area | Evidence | Not established |
+| --- | --- | --- |
+| Text delivery | Authenticated iPhone 13 Pro Safari → Windows native clipboard write and matching ACK | Other iPhone models, Android, desktop browsers, and broad Windows versions |
+| Accounts/devices | Google/GitHub sign-in, enrollment, discovery, presence, revocation, and restart behavior on staging | Account recovery, password sign-in, and large multi-device deployments |
+| Connection lifecycle | Disconnect and explicit reconnect, including recovery after Safari backgrounding | Reliable background operation, sleep/wake behavior, and every network type |
+| Image acquisition | Safari PNG and Photos-derived JPEG representations acquired in the web client | Image transfer or Windows image clipboard writing |
+| Network traversal | Connections completed in the recorded setups | Selected ICE route, STUN-only reliability, TURN behavior, or ordinary cross-network support without Tailscale |
+
+The table is a summary only. The dated observations below are the source of
+truth and retain limitations that should not be generalized.
+
 ## Verified manually
 
 | Date | Sender | Receiver | Network | Result | Missing details |
