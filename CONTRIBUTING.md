@@ -20,7 +20,9 @@ implementation contributions that fit the current roadmap.
 2. Install dependencies with `npm ci`.
 3. Build shared packages with `npm run build:shared` before running an
    individual application.
-4. Make the smallest coherent change and add or update tests and documentation.
+4. Keep the change focused and add or update tests and documentation. Small,
+   frequent pull requests are preferred over large changes that mix several
+   features or refactors.
 5. Run the full validation suite:
 
    ```bash

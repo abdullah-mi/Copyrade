@@ -70,15 +70,15 @@ before treating the platform spike as proven.
 
 ## Test result: 2026-09-22
 
-The user observed `DataChannel: connected` on both iPhone Safari and Windows
-Electron. The PC was at home and the phone was at school; Tailscale was enabled
-on both. The first attempt briefly connected then failed because the signaling
-validator rejected a nullable ICE `usernameFragment`. After the validation fix
-and signaling-server restart, both sides remained connected. This establishes
-one working cross-network connection, not which ICE candidate pair was selected.
-At that point it did not verify clipboard transfer, acknowledgement, disconnect
-behavior, or reliability across other networks. Device and OS versions were not
-recorded.
+I reached `DataChannel: connected` on both iPhone Safari and Windows Electron.
+The PC was at home and the phone was at school, with Tailscale enabled on both.
+The first attempt briefly connected and then failed because the signaling
+validator rejected a nullable ICE `usernameFragment`. After I fixed the
+validation and restarted the signaling server, both sides stayed connected.
+This confirmed one cross-network connection, but I did not record which ICE
+candidate pair was selected. I had not yet tested clipboard transfer,
+acknowledgement, disconnect behavior, or other networks, and I did not record
+the device and OS versions in that first test.
 
 Subsequent testing confirmed disconnect and reconnect from either peer. An
 unmatched code remained in `signaling`, so the mobile connection now has a

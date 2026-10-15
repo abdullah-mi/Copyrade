@@ -82,8 +82,8 @@ not implement clipboard-content analytics or logging.
   persisted, or logged.
 
 Focused tests cover protocol validation, transfer/ACK ordering, enrollment,
-ticket validation, account coordination, and key API boundaries. The recorded
-manual staging test is in [`compatibility.md`](compatibility.md).
+ticket validation, account coordination, and key API boundaries. Manual device
+and network checks are tracked in [`compatibility.md`](compatibility.md).
 
 ## Planned controls
 

@@ -32,6 +32,6 @@ WebRTC DataChannel.
 - Durable Objects provide a single coordinator per account and hibernatable
   WebSockets without placing clipboard payloads in Cloudflare storage.
 - The existing local room-code server remains available only as an isolated
-  development tool; the hosted replacement passed the staging test gate.
+  development tool; the hosted replacement has been tested in staging.
 - Presence, automatic reconnect, TURN, and background/tray behavior remain
   separate milestones.
