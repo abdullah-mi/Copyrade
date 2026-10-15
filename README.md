@@ -1,6 +1,7 @@
-<h1 align="center">Copyrade</h1>
-
-<p align="center"><sub>Your clipboard comrade.</sub></p>
+<h1 align="center">
+  Copyrade<br>
+  <sub>Your clipboard comrade.</sub>
+</h1>
 
 <p align="center">
   <a href="https://copyrade-staging.abdullahijaz-m.workers.dev"><img alt="Copyrade web app: online" src="https://img.shields.io/badge/web%20app-online-2EA44F?logo=cloudflare&amp;logoColor=white"></a><br>
@@ -33,20 +34,20 @@ yourself, file uploads, or cloud clipboard history.
 2. **Send** it to a registered Windows PC through Copyrade.
 3. **Paste** anywhere in Windows with `Ctrl+V`.
 
-Copyrade reports delivery only after the Electron app completes the native
-Windows clipboard write.
-
 ## Features
 
-| Feature | Status |
+| What Copyrade can do | Availability |
 | --- | --- |
-| iPhone Safari → Windows text transfer | Working |
-| Google/GitHub sign-in and Windows device enrollment | Working |
-| PC online status, automatic reconnection, and remote device removal | Working |
-| Windows clipboard updates with delivery confirmation | Working |
-| Browser acquisition of text, URLs, JPEG, and PNG representations | Working |
-| Image delivery to the Windows clipboard | In development |
-| Downloadable Windows app and broader compatibility | Planned |
+| Send text and links from iPhone to the Windows clipboard | Available |
+| Find registered PCs, see when they are online, and reconnect | Available |
+| Transfer clipboard content over an encrypted peer-to-peer connection | Available |
+| Send images, starting with JPEG and PNG | In development |
+| Automatically connect when only one registered PC is online | Planned |
+| Run quietly as a Windows background and tray app | Planned |
+| Share through an iPhone Shortcut or the iOS share menu | Planned |
+| Use a dedicated mobile app | Planned |
+| Pair without an account or sign in with email and password | Planned |
+| Choose local/direct-only networking or use an encrypted relay fallback | Planned |
 
 See [compatibility](docs/compatibility.md) for verified devices and connection
 help, or [report a problem](https://github.com/abdullah-mi/Copyrade/issues/new).
@@ -121,12 +122,20 @@ Read the full [architecture](docs/architecture.md) and
 
 ## Roadmap
 
-- [Image transfer](https://github.com/abdullah-mi/Copyrade/milestone/2): deliver
-  bounded JPEG and PNG representations to the Windows image clipboard.
-- Expand reconnect, sleep/wake, and cross-network compatibility testing.
-- [Windows alpha](https://github.com/abdullah-mi/Copyrade/milestone/3): add
-  receiver lifecycle behavior and package the first signed Windows build.
-- Design bounded temporary storage before adding original-file or PDF transfer.
+| Area | Status | Technical work |
+| --- | --- | --- |
+| Accounts and devices | Complete | Google/GitHub sign-in, verified-email linking, browser-approved enrollment, protected credentials, discovery, presence, and revocation |
+| Connections | Complete | Account-scoped signaling, automatic connection requests to a selected PC, disconnect handling, and explicit reconnects |
+| Text transfer | Complete | Bounded transfers, native Windows clipboard writes, and delivery acknowledgements |
+| Browser paste flow | Complete | Text, URLs, Safari PNG images, and Photos-derived JPEG images |
+| [Image transfer](https://github.com/abdullah-mi/Copyrade/milestone/2) | In progress | Bounded JPEG/PNG transfer, integrity checks, backpressure, cancellation, and native Windows image clipboard writes |
+| Automatic connection | Planned | Select and connect automatically when exactly one registered PC is available |
+| [Windows alpha](https://github.com/abdullah-mi/Copyrade/milestone/3) | Planned | Tray/background behavior, launch at login, sleep/wake recovery, packaging, signing, and installation testing |
+| More account options | Planned | Email/password accounts and short-lived account-less pairing codes |
+| iPhone and mobile apps | Planned | Faster sharing through an iPhone Shortcut or share-menu integration, followed by a dedicated mobile app |
+| Network modes | Planned | Direct-only mode, longer-term LAN-only operation, and an encrypted relay fallback for restrictive networks |
+| Original files | Planned | Preserve HEIF, PDF, and other files with bounded temporary storage and cleanup |
+| Compatibility | In progress | Expand Android, browser, Windows-version, sleep/wake, and network testing |
 
 ## Documentation
 

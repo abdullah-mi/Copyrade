@@ -1,44 +1,55 @@
 # Compatibility
 
-This page tracks where I have tested Copyrade, what worked, and what still needs
-more coverage. Clipboard contents and account credentials are never included in
-these notes or application logs.
+Copyrade is designed to connect a phone browser to a Windows receiver. Support
+will expand as the desktop app is packaged and more devices and networks are
+tested.
 
-## Tested at a glance
+## Expected compatibility
 
-| Area | Works today | Still to test |
-| --- | --- | --- |
-| Text delivery | Authenticated iPhone 13 Pro Safari → Windows native clipboard write and matching ACK | Other iPhone models, Android, desktop browsers, and broad Windows versions |
-| Accounts/devices | Google/GitHub sign-in, enrollment, discovery, presence, revocation, and restart behavior on staging | Account recovery, password sign-in, and large multi-device deployments |
-| Connection lifecycle | Disconnect and explicit reconnect, including recovery after Safari backgrounding | Reliable background operation, sleep/wake behavior, and every network type |
-| Image acquisition | Safari PNG and Photos-derived JPEG representations acquired in the web client | Image transfer or Windows image clipboard writing |
-| Network traversal | Connections completed in the setups below | Selected ICE route, STUN-only reliability, TURN behavior, and more networks without Tailscale |
+| Area | Expected support |
+| --- | --- |
+| Text and links | UTF-8 text and URLs up to 1 MiB |
+| Phone browsers | Modern secure-context browsers with WebRTC; clipboard and paste behavior depends on the browser and operating system |
+| Windows | The Electron receiver running from source on a modern Windows PC |
+| Accounts | Google and GitHub accounts that provide a verified email address |
+| Networks | Any network that allows the devices to establish a direct WebRTC connection |
+| Images | JPEG and PNG acquisition in the browser; Windows image delivery is still in development |
 
-The dated test history below has the details behind this summary.
+## Confirmed setup
 
-## Verified manually
+The complete authenticated text flow has been tested with an iPhone 13 Pro
+running Safari on iOS 26.4.1 and the Electron receiver on Windows. This includes:
 
-| Date | Sender | Receiver | Network | Result | Follow-up |
-| --- | --- | --- | --- | --- | --- |
-| 2026-09-21 | iPhone Safari | N/A | HTTPS development tunnel | User-initiated text clipboard read succeeded after Safari's native Paste action. | iPhone model and iOS/Safari version |
-| 2026-09-22 | iPhone Safari | Windows Electron development app | Phone at school, PC at home, Tailscale enabled on both | WebRTC DataChannel connected after nullable ICE candidate handling was fixed. | Windows version, Electron version, selected ICE candidate route |
-| 2026-09-28 | iPhone 13 Pro, Safari on iOS 26.4.1 | Windows Electron development app | Temporary HTTPS tunnel to the development environment | Wrong-code timeout and recovery, disconnect/reconnect, editable text input, native Windows clipboard write, and matching ACK succeeded. | Windows version, timings, network route |
-| 2026-10-11 | iPhone 13 Pro, Safari on iOS 26.4.1 | Registered Windows Electron staging receiver | Hosted Cloudflare staging control plane; peer route not recorded | Google/GitHub session flow, device discovery, account-scoped signaling, text delivery, native clipboard write, matching ACK, clean disconnect, and web revocation succeeded. | Windows version, timings, selected ICE route; identify the Safari extension associated with normal-tab instability |
-| 2026-10-11 | iPhone 13 Pro, Safari on iOS 26.4.1 | Persistent Windows Electron staging receiver | Hosted Cloudflare staging control plane | Live online/offline state, automatic connection request without manual listening, connection, text transfer, disconnect, receiver restart, and single-instance behavior succeeded. Electron logged DNS failures for the Cloudflare STUN hostname and randomized `.local` mDNS candidates, but another ICE path connected successfully. | Record the selected ICE route and repeat on networks without Tailscale before deciding whether this indicates a product defect |
-| 2026-10-11 | iPhone 13 Pro, Safari on iOS 26.4.1 | Persistent Windows Electron staging receiver | Safari background/foreground recovery | Backgrounding Safari ended the DataChannel, then an explicit connection request recovered successfully after the stale-socket replacement fix. Clipboard-read auto-send and idle-typed auto-send both updated the Windows clipboard and received acknowledgements. | Retest the final desktop `disconnected` presentation after rebuilding; broader iOS suspension behavior remains a compatibility concern |
-| 2026-10-12 | iPhone 13 Pro, Safari on iOS 26.4.1 | Hosted staging web client | Image acquisition | A web image was available as PNG. Photos images copied from PNG, JPEG, and HEIF sources were not exposed through the async Clipboard API, but a paste event exposed each as a decodable JPEG with dimensions and size. | Use the paste-event path for the web prototype; image transfer and Windows clipboard writing remain unimplemented |
-| 2026-10-12 | iPhone 13 Pro, Safari on iOS 26.4.1 | Hosted staging web client | Unified Paste control | One Paste action successfully distinguished text, URL, Photos JPEG, and Safari PNG representations. Reported image byte sizes sometimes differed from Photos because Safari received a transcoded clipboard representation rather than the original asset. | Preserve the received JPEG/PNG bytes during the image-transfer milestone; use explicit file import for original-file fidelity |
+- Google and GitHub sign-in;
+- Windows device enrollment, discovery, presence, restart, and revocation;
+- automatic connection requests to a selected PC;
+- text and URL delivery to the native Windows clipboard;
+- delivery acknowledgement, disconnect, and explicit reconnect;
+- recovery after returning to Safari from the background;
+- acquisition of Safari PNG images and Photos-derived JPEG representations.
 
-Copyrade has worked in the setups above. My first cross-network test used
-Tailscale, and I did not record the selected ICE route, so I still need to test
-more ordinary and restrictive networks before claiming broad reliability.
+Earlier development tests also connected an iPhone and Windows PC across
+different networks. Testing is continuing across more browsers, Windows
+versions, and network configurations.
 
-## Things I still want to test
+## Current limitations
 
-- Record the exact Windows version.
-- Test Unicode, emoji, URLs, code, and Windows/Unix line endings.
-- Disconnect after sending but before acknowledgement and verify a clear error.
-- Test home Wi-Fi, phone hotspot, and a restrictive network without Tailscale.
-- Test the Electron receiver while visible, hidden, and eventually tray-resident.
-- Record repeatable send-to-native-write acknowledgement timings before making
-  any latency claim.
+- Safari requires a user action and may show its native **Paste** callout before
+  sharing clipboard content with the web app.
+- Backgrounding Safari can close the active connection. Copyrade can reconnect
+  after the page becomes active again.
+- There is no TURN relay yet, so restrictive firewalls or NAT configurations
+  may prevent a direct connection.
+- Safari may provide a transcoded JPEG when an image is copied from Photos, even
+  when the original file was PNG or HEIF.
+- Image delivery, original-file transfer, Android coverage, and the packaged
+  Windows application are still in development.
+
+## Help and bug reports
+
+If Copyrade does not work in a setup that should be supported, check the
+[getting-started guide](getting-started.md) and the
+[architecture notes](architecture.md). Please include the phone, browser,
+Windows version, and general network type when
+[opening an issue](https://github.com/abdullah-mi/Copyrade/issues/new), but do
+not include clipboard contents, account credentials, device codes, or tokens.

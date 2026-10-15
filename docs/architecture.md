@@ -144,9 +144,9 @@ ownership, and temporary-file cleanup. See
 ### Network reliability
 
 No TURN relay is configured, so STUN-only connections can fail on restrictive
-networks. I did not record the ICE route in the first cross-network test. A TURN
-fallback, direct-only option, and stronger LAN-only design each need separate
-privacy and reliability decisions.
+networks. The first cross-network test did not capture the selected ICE route. A
+TURN fallback, direct-only option, and stronger LAN-only design each need
+separate privacy and reliability decisions.
 
 ## Architecture decisions
 
