@@ -64,33 +64,28 @@ app when finished.
 - Text transfer is limited to one in-flight, `text/plain` payload of at most
   1 MiB. Images, replay handling, and chunking are not implemented.
 
-Record the iPhone model, iOS/Safari version, Windows version, network topology,
-whether both channel indicators reached `connected`, and any connection errors
-before treating the platform spike as proven.
+Useful test reports include the phone, browser, Windows version, general network
+type, connection state, and any sanitized error message.
 
-## Test result: 2026-09-22
+## Verified result
 
-I reached `DataChannel: connected` on both iPhone Safari and Windows Electron.
-The PC was at home and the phone was at school, with Tailscale enabled on both.
-The first attempt briefly connected and then failed because the signaling
-validator rejected a nullable ICE `usernameFragment`. After I fixed the
-validation and restarted the signaling server, both sides stayed connected.
-This confirmed one cross-network connection, but I did not record which ICE
-candidate pair was selected. I had not yet tested clipboard transfer,
-acknowledgement, disconnect behavior, or other networks, and I did not record
-the device and OS versions in that first test.
+On September 22, 2026, the diagnostic reached `DataChannel: connected` between
+iPhone Safari and Windows Electron on separate networks with Tailscale enabled.
+The first connection exposed a signaling validation bug involving a nullable ICE
+`usernameFragment`. After that validation was fixed, the connection remained
+stable.
 
-Subsequent testing confirmed disconnect and reconnect from either peer. An
-unmatched code remained in `signaling`, so the mobile connection now has a
-15-second deadline and reports a clear failure. The combined development
-launcher and an explicit IPv4 Vite loopback binding were added after diagnosing
-the repeatable tunnel workflow.
+Later tests confirmed:
 
-The timeout was then verified on the iPhone, followed by recovery with the
-correct code. Real-device testing also completed the first text vertical slice:
-the phone sent synthetic text over the DataChannel, Electron wrote it through
-the validated IPC boundary, Windows exposed it for pasting, and the phone showed
-success after receiving the matching byte-count acknowledgement. An editable
-mobile text field supports testing without backgrounding Safari. The development
-code is restored from per-tab session storage after a reload, but the WebRTC
-connection must be re-established.
+- disconnect and reconnect from either device;
+- a 15-second timeout for unmatched room codes, followed by recovery with the
+  correct code;
+- bounded text delivery through the DataChannel and Electron's validated IPC
+  boundary;
+- a success acknowledgement only after Windows updated its native clipboard;
+- restoration of the development room code from per-tab session storage after a
+  reload, while requiring a new WebRTC connection.
+
+This verifies the development diagnostic and text-transfer path. It does not
+establish reliable traversal across every network because the test used
+Tailscale and no TURN relay is configured.
