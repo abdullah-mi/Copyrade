@@ -27,5 +27,5 @@ Enrollment requires a browser and expires after ten minutes. Starts are limited
 per source address, approval requires an authenticated same-origin request, and
 the exchange is single use. Electron periodically validates the saved credential
 and removes it after server revocation. The authenticated-signaling milestone
-enforces the device token at the signaling boundary; its staging test gate is
-tracked separately.
+enforces the device token at the signaling boundary. I track staging checks in
+the [compatibility notes](../compatibility.md).

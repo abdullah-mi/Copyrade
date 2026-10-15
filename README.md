@@ -133,7 +133,7 @@ Read the full [architecture](docs/architecture.md) and
 - [Developer getting started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [Security and privacy](docs/security.md)
-- [Compatibility evidence](docs/compatibility.md)
+- [Compatibility](docs/compatibility.md)
 - [Text transfer protocol](docs/protocol.md)
 - [Unauthenticated development connection](docs/connection-spike.md)
 - [Architecture decisions](docs/decisions)

@@ -81,8 +81,8 @@ See [ADR 0003](decisions/0003-device-enrollment.md).
 6. Clipboard text travels over the resulting WebRTC DataChannel. A matching
    ACK is sent only after the native Windows clipboard write succeeds.
 
-This flow has passed the recorded authenticated iPhone-to-Windows staging test.
-That evidence does not establish connectivity across every network.
+I have tested this flow from iPhone Safari to the Windows receiver through the
+hosted service. More network configurations still need testing.
 
 See [ADR 0004](decisions/0004-authenticated-signaling.md) and the
 [text protocol](protocol.md).
@@ -143,10 +143,10 @@ ownership, and temporary-file cleanup. See
 
 ### Network reliability
 
-No TURN relay is configured. STUN-only connections can fail on restrictive
-networks, and the selected ICE route was not recorded in the initial
-cross-network evidence. A TURN fallback, direct-only option, and stronger
-LAN-only design require separate privacy and reliability decisions.
+No TURN relay is configured, so STUN-only connections can fail on restrictive
+networks. I did not record the ICE route in the first cross-network test. A TURN
+fallback, direct-only option, and stronger LAN-only design each need separate
+privacy and reliability decisions.
 
 ## Architecture decisions
 

@@ -1,25 +1,24 @@
-# Compatibility evidence
+# Compatibility
 
-This file records observed Copyrade behavior without treating planned support as
-verified support. Test content must be synthetic, and clipboard contents must
-not be copied into this document or logs.
+This page tracks where I have tested Copyrade, what worked, and what still needs
+more coverage. Clipboard contents and account credentials are never included in
+these notes or application logs.
 
 ## Tested at a glance
 
-| Area | Evidence | Not established |
+| Area | Works today | Still to test |
 | --- | --- | --- |
 | Text delivery | Authenticated iPhone 13 Pro Safari → Windows native clipboard write and matching ACK | Other iPhone models, Android, desktop browsers, and broad Windows versions |
 | Accounts/devices | Google/GitHub sign-in, enrollment, discovery, presence, revocation, and restart behavior on staging | Account recovery, password sign-in, and large multi-device deployments |
 | Connection lifecycle | Disconnect and explicit reconnect, including recovery after Safari backgrounding | Reliable background operation, sleep/wake behavior, and every network type |
 | Image acquisition | Safari PNG and Photos-derived JPEG representations acquired in the web client | Image transfer or Windows image clipboard writing |
-| Network traversal | Connections completed in the recorded setups | Selected ICE route, STUN-only reliability, TURN behavior, or ordinary cross-network support without Tailscale |
+| Network traversal | Connections completed in the setups below | Selected ICE route, STUN-only reliability, TURN behavior, and more networks without Tailscale |
 
-The table is a summary only. The dated observations below are the source of
-truth and retain limitations that should not be generalized.
+The dated test history below has the details behind this summary.
 
 ## Verified manually
 
-| Date | Sender | Receiver | Network | Result | Missing details |
+| Date | Sender | Receiver | Network | Result | Follow-up |
 | --- | --- | --- | --- | --- | --- |
 | 2026-09-21 | iPhone Safari | N/A | HTTPS development tunnel | User-initiated text clipboard read succeeded after Safari's native Paste action. | iPhone model and iOS/Safari version |
 | 2026-09-22 | iPhone Safari | Windows Electron development app | Phone at school, PC at home, Tailscale enabled on both | WebRTC DataChannel connected after nullable ICE candidate handling was fixed. | Windows version, Electron version, selected ICE candidate route |
@@ -30,12 +29,11 @@ truth and retain limitations that should not be generalized.
 | 2026-10-12 | iPhone 13 Pro, Safari on iOS 26.4.1 | Hosted staging web client | Image acquisition | A web image was available as PNG. Photos images copied from PNG, JPEG, and HEIF sources were not exposed through the async Clipboard API, but a paste event exposed each as a decodable JPEG with dimensions and size. | Use the paste-event path for the web prototype; image transfer and Windows clipboard writing remain unimplemented |
 | 2026-10-12 | iPhone 13 Pro, Safari on iOS 26.4.1 | Hosted staging web client | Unified Paste control | One Paste action successfully distinguished text, URL, Photos JPEG, and Safari PNG representations. Reported image byte sizes sometimes differed from Photos because Safari received a transcoded clipboard representation rather than the original asset. | Preserve the received JPEG/PNG bytes during the image-transfer milestone; use explicit file import for original-file fidelity |
 
-These results prove one development setup, not general browser or network
-compatibility. Tailscale was present during the initial cross-network test, and
-the selected ICE route was not recorded, so that test does not prove ordinary
-internet traversal without Tailscale.
+Copyrade has worked in the setups above. My first cross-network test used
+Tailscale, and I did not record the selected ICE route, so I still need to test
+more ordinary and restrictive networks before claiming broad reliability.
 
-## Next compatibility checks
+## Things I still want to test
 
 - Record the exact Windows version.
 - Test Unicode, emoji, URLs, code, and Windows/Unix line endings.
