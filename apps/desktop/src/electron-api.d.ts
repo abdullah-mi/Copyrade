@@ -16,6 +16,10 @@ type ClipboardWriteResult =
 interface CopyradeDesktopApi {
   clipboard: {
     writeText(text: string): Promise<ClipboardWriteResult>
+    writeImage(
+      mimeType: 'image/png' | 'image/jpeg',
+      bytes: Uint8Array,
+    ): Promise<ClipboardWriteResult>
   }
   device: {
     getStatus(): Promise<DeviceEnrollmentStatus>

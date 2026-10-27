@@ -1,7 +1,11 @@
 export const PROTOCOL_VERSION = 1 as const
 export const TEXT_MIME_TYPE = 'text/plain' as const
 export const MAX_TEXT_BYTES = 1024 * 1024
+export const MAX_IMAGE_BYTES = 16 * 1024 * 1024
+export const IMAGE_CHUNK_BYTES = 48 * 1024
 export const MAX_SERIALIZED_MESSAGE_BYTES = MAX_TEXT_BYTES + 4096
+export const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg'] as const
+export type ImageMimeType = (typeof IMAGE_MIME_TYPES)[number]
 
 const TRANSFER_ID_PATTERN = /^[A-Za-z0-9_-]{16,128}$/
 const textEncoder = new TextEncoder()
@@ -28,6 +32,30 @@ export type ClipboardAckMessage = {
   byteLength: number
 }
 
+export type ImageTransferStartMessage = {
+  protocolVersion: typeof PROTOCOL_VERSION
+  kind: 'IMAGE_TRANSFER_START'
+  transferId: string
+  mimeType: ImageMimeType
+  byteLength: number
+  chunkCount: number
+  sha256: string
+}
+
+export type ImageTransferChunkMessage = {
+  protocolVersion: typeof PROTOCOL_VERSION
+  kind: 'IMAGE_TRANSFER_CHUNK'
+  transferId: string
+  index: number
+  data: string
+}
+
+export type ImageTransferEndMessage = {
+  protocolVersion: typeof PROTOCOL_VERSION
+  kind: 'IMAGE_TRANSFER_END'
+  transferId: string
+}
+
 export type ProtocolErrorCode =
   | 'INVALID_MESSAGE'
   | 'PAYLOAD_TOO_LARGE'
@@ -45,6 +73,9 @@ export type ErrorMessage = {
 export type ProtocolMessage =
   | ClipboardTransferMessage
   | ClipboardAckMessage
+  | ImageTransferStartMessage
+  | ImageTransferChunkMessage
+  | ImageTransferEndMessage
   | ErrorMessage
 
 export type ProtocolDecodeErrorCode =
@@ -88,6 +119,58 @@ function isValidByteLength(value: unknown): value is number {
     value > 0 &&
     value <= MAX_TEXT_BYTES
   )
+}
+
+function isValidImageByteLength(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 && value <= MAX_IMAGE_BYTES
+}
+
+function isImageMimeType(value: unknown): value is ImageMimeType {
+  return typeof value === 'string' && IMAGE_MIME_TYPES.includes(value as ImageMimeType)
+}
+
+function parseImageTransferStart(value: Record<string, unknown>): ProtocolDecodeResult {
+  if (
+    !hasOnlyKeys(value, ['protocolVersion', 'kind', 'transferId', 'mimeType', 'byteLength', 'chunkCount', 'sha256']) ||
+    !isTransferId(value.transferId) ||
+    !isImageMimeType(value.mimeType) ||
+    !isValidImageByteLength(value.byteLength) ||
+    typeof value.chunkCount !== 'number' ||
+    !Number.isSafeInteger(value.chunkCount) ||
+    value.chunkCount !== Math.ceil(value.byteLength / IMAGE_CHUNK_BYTES) ||
+    typeof value.sha256 !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(value.sha256)
+  ) {
+    return decodeFailure('INVALID_MESSAGE', 'Invalid image transfer start.')
+  }
+  return { ok: true, message: value as ImageTransferStartMessage }
+}
+
+function parseImageTransferChunk(value: Record<string, unknown>): ProtocolDecodeResult {
+  if (
+    !hasOnlyKeys(value, ['protocolVersion', 'kind', 'transferId', 'index', 'data']) ||
+    !isTransferId(value.transferId) ||
+    typeof value.index !== 'number' ||
+    !Number.isSafeInteger(value.index) ||
+    value.index < 0 ||
+    typeof value.data !== 'string' ||
+    value.data.length === 0 ||
+    value.data.length > Math.ceil(IMAGE_CHUNK_BYTES / 3) * 4 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(value.data)
+  ) {
+    return decodeFailure('INVALID_MESSAGE', 'Invalid image transfer chunk.')
+  }
+  return { ok: true, message: value as ImageTransferChunkMessage }
+}
+
+function parseImageTransferEnd(value: Record<string, unknown>): ProtocolDecodeResult {
+  if (
+    !hasOnlyKeys(value, ['protocolVersion', 'kind', 'transferId']) ||
+    !isTransferId(value.transferId)
+  ) {
+    return decodeFailure('INVALID_MESSAGE', 'Invalid image transfer end.')
+  }
+  return { ok: true, message: value as ImageTransferEndMessage }
 }
 
 function decodeFailure(
@@ -197,11 +280,39 @@ export function parseProtocolMessage(value: unknown): ProtocolDecodeResult {
       return parseClipboardTransfer(value)
     case 'CLIPBOARD_ACK':
       return parseClipboardAck(value)
+    case 'IMAGE_TRANSFER_START':
+      return parseImageTransferStart(value)
+    case 'IMAGE_TRANSFER_CHUNK':
+      return parseImageTransferChunk(value)
+    case 'IMAGE_TRANSFER_END':
+      return parseImageTransferEnd(value)
     case 'ERROR':
       return parseError(value)
     default:
       return decodeFailure('INVALID_MESSAGE', 'Unsupported message kind.')
   }
+}
+
+export function createImageTransferStartMessage(
+  transferId: string,
+  mimeType: ImageMimeType,
+  byteLength: number,
+  sha256: string,
+): ImageTransferStartMessage {
+  const value = {
+    protocolVersion: PROTOCOL_VERSION,
+    kind: 'IMAGE_TRANSFER_START',
+    transferId,
+    mimeType,
+    byteLength,
+    chunkCount: Math.ceil(byteLength / IMAGE_CHUNK_BYTES),
+    sha256,
+  } as const
+  const parsed = parseProtocolMessage(value)
+  if (!parsed.ok || parsed.message.kind !== 'IMAGE_TRANSFER_START') {
+    throw new RangeError('Image transfer metadata is invalid.')
+  }
+  return parsed.message
 }
 
 export function decodeProtocolMessage(serialized: unknown): ProtocolDecodeResult {

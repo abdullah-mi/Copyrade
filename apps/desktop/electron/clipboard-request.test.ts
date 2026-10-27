@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { MAX_TEXT_BYTES, validateClipboardText } from './clipboard-request.js'
+import {
+  MAX_IMAGE_BYTES,
+  MAX_TEXT_BYTES,
+  validateClipboardImage,
+  validateClipboardText,
+} from './clipboard-request.js'
 
 describe('validateClipboardText', () => {
   it('accepts text and reports its UTF-8 byte length', () => {
@@ -37,5 +42,20 @@ describe('validateClipboardText', () => {
     if (!oversized.ok) {
       assert.equal(oversized.error.code, 'PAYLOAD_TOO_LARGE')
     }
+  })
+})
+
+describe('validateClipboardImage', () => {
+  it('accepts PNG and JPEG signatures', () => {
+    const png = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 1])
+    const jpeg = Uint8Array.from([255, 216, 1, 2, 255, 217])
+    assert.equal(validateClipboardImage('image/png', png).ok, true)
+    assert.equal(validateClipboardImage('image/jpeg', jpeg).ok, true)
+  })
+
+  it('rejects mismatched, unsupported, and oversized image data', () => {
+    assert.equal(validateClipboardImage('image/jpeg', Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10])).ok, false)
+    assert.equal(validateClipboardImage('image/heic', Uint8Array.of(1)).ok, false)
+    assert.equal(validateClipboardImage('image/png', new Uint8Array(MAX_IMAGE_BYTES + 1)).ok, false)
   })
 })

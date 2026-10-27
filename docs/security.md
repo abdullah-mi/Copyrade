@@ -68,18 +68,19 @@ not implement clipboard-content analytics or logging.
 
 ### Clipboard and Electron boundary
 
-- Version 1 accepts one non-empty `text/plain` representation of at most 1 MiB,
-  with strict protocol version, message kind, byte-length, and field validation.
+- Version 1 accepts non-empty `text/plain` up to 1 MiB and JPEG/PNG image
+  representations up to 16 MiB, with strict framing and size validation.
 - The Electron renderer has Node.js integration disabled, context isolation
   enabled, and Chromium sandboxing enabled.
 - The preload bridge exposes narrow clipboard and device operations rather than
   general Electron IPC. The main process checks the sending frame and validates
-  text type and size before calling the native clipboard API.
+  text or image type, size, and encoded signature before calling the native
+  clipboard API.
 - The sender receives a success ACK only after the native Windows clipboard
   write completes with the expected byte length. Failures do not echo content.
-- Browser-acquired image representations are currently held in memory for local
-  type, size, and dimension inspection. They are not transmitted, previewed,
-  persisted, or logged.
+- Image chunks are assembled in memory, checked against their declared byte
+  length and SHA-256 digest, and released after completion, failure, timeout, or
+  disconnect. Clipboard image content is not persisted or logged.
 
 Focused tests cover protocol validation, transfer/ACK ordering, enrollment,
 ticket validation, account coordination, and key API boundaries. Manual device
@@ -88,14 +89,6 @@ and network checks are tracked in [`compatibility.md`](compatibility.md).
 ## Planned controls
 
 These safeguards describe future features and must not be presented as shipped.
-
-### Image delivery
-
-- Accept only bounded JPEG and PNG representations.
-- Validate declared type, encoded signature, exact byte length, chunk order,
-  and SHA-256 before decoding or writing to the Windows clipboard.
-- Keep one transfer in memory and release it on ACK, failure, cancellation,
-  timeout, or disconnect. Do not create an image cache or clipboard history.
 
 ### Original-file and PDF delivery
 

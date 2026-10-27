@@ -6,12 +6,25 @@ const code = '0123456789abcdef0123456789abcdef'
 
 class FakeDataChannel {
   readyState: RTCDataChannelState = 'connecting'
+  bufferedAmount = 0
+  bufferedAmountLowThreshold = 0
   closed = false
   sent: string[] = []
   onopen: ((event: Event) => void) | null = null
   onclose: ((event: Event) => void) | null = null
   onerror: ((event: Event) => void) | null = null
   onmessage: ((event: MessageEvent) => void) | null = null
+  private listeners = new Map<string, Set<() => void>>()
+
+  addEventListener(type: string, listener: () => void): void {
+    const listeners = this.listeners.get(type) ?? new Set<() => void>()
+    listeners.add(listener)
+    this.listeners.set(type, listeners)
+  }
+
+  removeEventListener(type: string, listener: () => void): void {
+    this.listeners.get(type)?.delete(listener)
+  }
 
   send(message: string): void {
     this.sent.push(message)
@@ -30,6 +43,11 @@ class FakeDataChannel {
   emitClose(): void {
     this.readyState = 'closed'
     this.onclose?.({} as Event)
+  }
+
+  drain(): void {
+    this.bufferedAmount = 0
+    for (const listener of [...(this.listeners.get('bufferedamountlow') ?? [])]) listener()
   }
 }
 
@@ -209,5 +227,22 @@ describe('DevelopmentConnection lifecycle', () => {
     assert.deepEqual(socket.protocols, ['copyrade-v1', ticket])
     socket.open()
     assert.deepEqual(socket.sent, [])
+  })
+
+  it('waits for the DataChannel buffer to drain before sending another chunk', async () => {
+    const connection = new DevelopmentConnection()
+    await connection.connect('desktop', code, 'ws://127.0.0.1:8787/signal')
+    const peer = FakePeerConnection.instances[0]
+    assert.ok(peer)
+    const channel = new FakeDataChannel()
+    peer.ondatachannel?.({ channel: channel as unknown as RTCDataChannel } as RTCDataChannelEvent)
+    channel.open()
+    channel.bufferedAmount = 300 * 1024
+
+    const sending = connection.sendDataWithBackpressure('next chunk')
+    assert.deepEqual(channel.sent, [])
+    channel.drain()
+    await sending
+    assert.deepEqual(channel.sent, ['next chunk'])
   })
 })

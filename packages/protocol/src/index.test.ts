@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   MAX_SERIALIZED_MESSAGE_BYTES,
+  createImageTransferStartMessage,
   createTextTransferMessage,
   decodeProtocolMessage,
   encodeProtocolMessage,
@@ -91,5 +92,44 @@ describe('Copyrade protocol', () => {
       TypeError,
     )
     assert.throws(() => createTextTransferMessage(transferId, ''), RangeError)
+  })
+
+  it('accepts bounded PNG and JPEG transfer framing', () => {
+    const start = createImageTransferStartMessage(
+      transferId,
+      'image/png',
+      49_153,
+      'a'.repeat(64),
+    )
+    assert.equal(start.chunkCount, 2)
+    assert.equal(parseProtocolMessage(start).ok, true)
+    assert.equal(parseProtocolMessage({
+      protocolVersion: 1,
+      kind: 'IMAGE_TRANSFER_CHUNK',
+      transferId,
+      index: 0,
+      data: 'AQID',
+    }).ok, true)
+    assert.equal(parseProtocolMessage({
+      protocolVersion: 1,
+      kind: 'IMAGE_TRANSFER_END',
+      transferId,
+    }).ok, true)
+  })
+
+  it('rejects unsupported image types and inconsistent chunk counts', () => {
+    assert.equal(parseProtocolMessage({
+      protocolVersion: 1,
+      kind: 'IMAGE_TRANSFER_START',
+      transferId,
+      mimeType: 'image/heic',
+      byteLength: 10,
+      chunkCount: 1,
+      sha256: 'a'.repeat(64),
+    }).ok, false)
+    assert.throws(
+      () => createImageTransferStartMessage(transferId, 'image/png', 0, 'a'.repeat(64)),
+      RangeError,
+    )
   })
 })

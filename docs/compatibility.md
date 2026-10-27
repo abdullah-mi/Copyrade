@@ -13,7 +13,7 @@ tested.
 | Windows | The Electron receiver running from source on a modern Windows PC |
 | Accounts | Google and GitHub accounts that provide a verified email address |
 | Networks | Any network that allows the devices to establish a direct WebRTC connection |
-| Images | JPEG and PNG acquisition in the browser; Windows image delivery is still in development |
+| Images | JPEG and PNG clipboard representations can be delivered to the Windows clipboard |
 
 ## Confirmed setup
 
@@ -26,7 +26,8 @@ running Safari on iOS 26.4.1 and the Electron receiver on Windows. This includes
 - text and URL delivery to the native Windows clipboard;
 - delivery acknowledgement, disconnect, and explicit reconnect;
 - recovery after returning to Safari from the background;
-- acquisition of Safari PNG images and Photos-derived JPEG representations.
+- acquisition and Windows clipboard delivery of Safari PNG/JPEG images and
+  Photos-derived JPEG representations.
 
 Earlier development tests also connected an iPhone and Windows PC across
 different networks. Testing is continuing across more browsers, Windows
@@ -42,8 +43,11 @@ versions, and network configurations.
   may prevent a direct connection.
 - Safari may provide a transcoded JPEG when an image is copied from Photos, even
   when the original file was PNG or HEIF.
-- Image delivery, original-file transfer, Android coverage, and the packaged
-  Windows application are still in development.
+- Some Safari copy actions expose only text or the image URL rather than image
+  bytes. Copyrade transfers the representation Safari provides; **Choose
+  image** is the fallback when image bytes are required.
+- Original-file transfer, Android coverage, and the packaged Windows
+  application are still in development.
 
 ## Help and bug reports
 
