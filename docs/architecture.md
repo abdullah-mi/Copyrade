@@ -133,8 +133,13 @@ have reached the Windows clipboard; broader device testing remains in progress.
 
 ### Desktop lifecycle and distribution
 
-The primary target is an installed, per-user Windows application packaged with
-Electron Forge. Tray/quit behavior, opt-in startup, sleep/wake recovery,
+The source-run receiver stays online when its window closes, restores from a
+Windows tray icon, provides an explicit quit action, and preserves its
+single-instance behavior. The tray uses the executable icon, allowing the
+packaged app to adopt the final product artwork without a second tray asset.
+
+The primary distribution target remains an installed, per-user Windows
+application packaged with Electron Forge. Opt-in startup, sleep/wake recovery,
 signing, update policy, and clean-machine installer tests remain planned. There
 is currently no public Windows build.
 

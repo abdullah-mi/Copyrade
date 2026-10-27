@@ -1,4 +1,13 @@
-import { app, BrowserWindow, ClipboardItem, clipboard, ipcMain, nativeImage } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ClipboardItem,
+  clipboard,
+  ipcMain,
+  Menu,
+  nativeImage,
+  Tray,
+} from 'electron'
 import type { IpcMainInvokeEvent, WebFrameMain } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -9,6 +18,7 @@ import {
 } from './clipboard-request.js'
 import type { ClipboardWriteResult } from './clipboard-request.js'
 import { DeviceEnrollmentManager } from './device-enrollment.js'
+import { shouldHideWindowOnClose } from './window-lifecycle.js'
 
 const CLIPBOARD_WRITE_CHANNEL = 'clipboard:write-text'
 const CLIPBOARD_WRITE_IMAGE_CHANNEL = 'clipboard:write-image'
@@ -19,6 +29,8 @@ const DEVICE_SIGNAL_TICKET_CHANNEL = 'device:signal-ticket'
 const DEVICE_PRESENCE_TICKET_CHANNEL = 'device:presence-ticket'
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+let isQuitting = false
 const deviceEnrollment = new DeviceEnrollmentManager()
 
 function rendererEntryPath(): string {
@@ -113,9 +125,51 @@ function createWindow(): void {
   })
 
   void mainWindow.loadFile(rendererEntryPath())
+  mainWindow.on('close', (event) => {
+    if (shouldHideWindowOnClose({
+      isQuitting,
+      platform: process.platform,
+      trayAvailable: tray !== null,
+    })) {
+      event.preventDefault()
+      mainWindow?.hide()
+    }
+  })
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+}
+
+function showMainWindow(): void {
+  if (!mainWindow) {
+    createWindow()
+    return
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+async function createTray(): Promise<void> {
+  if (process.platform !== 'win32' || tray) return
+  const icon = await app.getFileIcon(process.execPath, { size: 'small' })
+  tray = new Tray(icon)
+  tray.setToolTip('Copyrade')
+  tray.setContextMenu(Menu.buildFromTemplate([
+    {
+      label: 'Open Copyrade',
+      click: showMainWindow,
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit Copyrade',
+      click: () => {
+        isQuitting = true
+        app.quit()
+      },
+    },
+  ]))
+  tray.on('click', showMainWindow)
 }
 
 ipcMain.handle(CLIPBOARD_WRITE_CHANNEL, writeClipboardText)
@@ -156,25 +210,27 @@ if (!hasSingleInstanceLock) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    if (!mainWindow) return
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.show()
-    mainWindow.focus()
+    showMainWindow()
   })
 }
 
-if (hasSingleInstanceLock) app.whenReady().then(() => {
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
+if (hasSingleInstanceLock) app.whenReady().then(async () => {
+  await createTray().catch(() => {
+    tray = null
+  })
   createWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
-    }
+    showMainWindow()
   })
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && !tray) {
     app.quit()
   }
 })
