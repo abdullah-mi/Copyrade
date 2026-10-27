@@ -9,7 +9,7 @@
     "build:electron": "tsc -b tsconfig.electron.json",
     "lint": "eslint .",
     "start": "npm run build && electron .",
-    "test": "npm run build:electron && node --test --test-isolation=none dist-electron/clipboard-request.test.js"
+    "test": "npm run build:electron && node --test --test-isolation=none dist-electron/*.test.js"
   },
   "dependencies": {
     "@copyrade/connection": "0.0.0",

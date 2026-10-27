@@ -27,7 +27,8 @@ running Safari on iOS 26.4.1 and the Electron receiver on Windows. This includes
 - delivery acknowledgement, disconnect, and explicit reconnect;
 - recovery after returning to Safari from the background;
 - acquisition and Windows clipboard delivery of Safari PNG/JPEG images and
-  Photos-derived JPEG representations.
+  Photos-derived JPEG representations;
+- Windows close-to-tray, restore, explicit quit, and second-launch behavior.
 
 Earlier development tests also connected an iPhone and Windows PC across
 different networks. Testing is continuing across more browsers, Windows
