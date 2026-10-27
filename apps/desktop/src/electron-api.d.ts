@@ -28,6 +28,9 @@ interface CopyradeDesktopApi {
     getSignalingTicket(): Promise<SignalingTicketResult>
     getPresenceTicket(): Promise<PresenceTicketResult>
   }
+  system: {
+    onPowerEvent(listener: (event: 'suspend' | 'resume') => void): () => void
+  }
 }
 
 type EnrolledDevice = {

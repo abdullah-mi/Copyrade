@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  powerMonitor,
   Tray,
 } from 'electron'
 import type { IpcMainInvokeEvent, WebFrameMain } from 'electron'
@@ -27,6 +28,7 @@ const DEVICE_ENROLL_START_CHANNEL = 'device:enroll-start'
 const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
 const DEVICE_SIGNAL_TICKET_CHANNEL = 'device:signal-ticket'
 const DEVICE_PRESENCE_TICKET_CHANNEL = 'device:presence-ticket'
+const SYSTEM_POWER_CHANNEL = 'system:power'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -223,6 +225,13 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     tray = null
   })
   createWindow()
+
+  powerMonitor.on('suspend', () => {
+    mainWindow?.webContents.send(SYSTEM_POWER_CHANNEL, 'suspend')
+  })
+  powerMonitor.on('resume', () => {
+    mainWindow?.webContents.send(SYSTEM_POWER_CHANNEL, 'resume')
+  })
 
   app.on('activate', () => {
     showMainWindow()

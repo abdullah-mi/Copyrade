@@ -21,7 +21,16 @@ function App() {
   const [enrollmentState, setEnrollmentState] = useState<EnrollmentState>('loading')
   const [enrollmentMessage, setEnrollmentMessage] = useState('Checking device registration...')
   const [presenceState, setPresenceState] = useState<PresenceState>('offline')
+  const [recoveryGeneration, setRecoveryGeneration] = useState(0)
+  const recoveryGenerationRef = useRef(0)
   const enrollmentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const resetReceiverConnections = useCallback(() => {
+    recoveryGenerationRef.current += 1
+    connection.disconnect()
+    setPresenceState('offline')
+    setRecoveryGeneration(recoveryGenerationRef.current)
+  }, [])
 
   const refreshDeviceStatus = useCallback(async () => {
     try {
@@ -71,6 +80,22 @@ function App() {
       connection.disconnect()
     }
   }, [enrollmentState])
+
+  useEffect(() => {
+    const removePowerListener = window.copyrade.system.onPowerEvent(() => {
+      resetReceiverConnections()
+    })
+    const handleOffline = () => resetReceiverConnections()
+    const handleOnline = () => resetReceiverConnections()
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      removePowerListener()
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [resetReceiverConnections])
 
   useEffect(() => {
     const imageReceiver = new ImageTransferReceiver({
@@ -124,9 +149,11 @@ function App() {
   }, [])
 
   const handleConnect = useCallback(async () => {
+    const generation = recoveryGenerationRef.current
     setConnectionError('')
     try {
       const authorization = await window.copyrade.device.getSignalingTicket()
+      if (generation !== recoveryGenerationRef.current) return
       if (!authorization.ok) throw new Error(authorization.error)
       await connection.connectAuthenticated(
         'desktop',
@@ -192,7 +219,7 @@ function App() {
       if (reconnectTimer) clearTimeout(reconnectTimer)
       socket?.close(1000, 'Presence stopped')
     }
-  }, [enrollmentState, handleConnect])
+  }, [enrollmentState, handleConnect, recoveryGeneration])
 
   async function handleWriteClipboard() {
     setStatus('writing')

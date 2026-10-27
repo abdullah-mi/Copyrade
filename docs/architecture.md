@@ -139,7 +139,9 @@ single-instance behavior. The tray uses the executable icon, allowing the
 packaged app to adopt the final product artwork without a second tray asset.
 
 The primary distribution target remains an installed, per-user Windows
-application packaged with Electron Forge. Opt-in startup, sleep/wake recovery,
+application packaged with Electron Forge. The current receiver resets stale
+presence, signaling, and peer state after suspend/resume or a network
+online/offline transition. Opt-in startup,
 signing, update policy, and clean-machine installer tests remain planned. There
 is currently no public Windows build.
 
