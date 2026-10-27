@@ -1,8 +1,9 @@
 # Copyrade architecture
 
-This document separates the deployed staging design from planned work. The
-current end-to-end payload path supports bounded `text/plain` transfers only.
-Browser-side image acquisition is implemented; image delivery is not.
+This document separates the deployed design from planned work. The payload path
+supports bounded `text/plain`, JPEG, and PNG clipboard representations. Image
+delivery has passed an iPhone Safari-to-Windows test, with broader device
+testing still in progress.
 
 ## Staging architecture
 
@@ -19,7 +20,7 @@ flowchart LR
     Worker <--> D1
     Phone <-->|authenticated WebSocket| DO
     PC <-->|authenticated WebSocket| DO
-    Phone <-->|encrypted WebRTC DataChannel<br/>text payload today| PC
+    Phone <-->|encrypted WebRTC DataChannel<br/>text and image payloads| PC
 ```
 
 Cloudflare is the control plane; WebRTC is the clipboard data plane:
@@ -31,8 +32,8 @@ Cloudflare is the control plane; WebRTC is the clipboard data plane:
   revocation, and abuse-prevention records. Clipboard payloads are not stored.
 - **Durable Objects** coordinate account-scoped device presence and transient
   WebRTC signaling over WebSockets. They do not carry clipboard payloads.
-- **WebRTC DataChannel** carries the implemented text payload between the phone
-  and Windows receiver. JPEG/PNG delivery is the next protocol milestone.
+- **WebRTC DataChannel** carries text and chunked JPEG/PNG representations
+  between the phone and Windows receiver.
 
 The staging deployment is
 [`copyrade-staging.abdullahijaz-m.workers.dev`](https://copyrade-staging.abdullahijaz-m.workers.dev).
@@ -78,8 +79,9 @@ See [ADR 0003](decisions/0003-device-enrollment.md).
    Durable Object.
 5. The coordinator consumes each ticket nonce once, matches opposite roles for
    the same device ID, and relays bounded SDP and ICE messages.
-6. Clipboard text travels over the resulting WebRTC DataChannel. A matching
-   ACK is sent only after the native Windows clipboard write succeeds.
+6. Clipboard text or bounded image chunks travel over the resulting WebRTC
+   DataChannel. A matching ACK is sent only after the native Windows clipboard
+   write succeeds.
 
 I have tested this flow from iPhone Safari to the Windows receiver through the
 hosted service. More network configurations still need testing.
@@ -105,7 +107,8 @@ See [ADR 0005](decisions/0005-persistent-device-presence.md).
 Electron runs its React renderer with Node.js integration disabled, context
 isolation enabled, and Chromium sandboxing enabled. A narrow preload bridge
 exposes typed operations. The main process checks the requesting frame and
-validates clipboard text before calling Electron's native clipboard API.
+validates clipboard text and image data before calling Electron's native
+clipboard API.
 
 The current device credential is stored under Electron's per-user `userData`
 directory. It is protected with Windows DPAPI through `safeStorage`, but this
@@ -123,9 +126,10 @@ architecture described above. See the
 
 ### Image clipboard transfer
 
-JPEG and PNG representations up to 16 MiB will be chunked, integrity-checked,
-and assembled in memory. Success will be acknowledged only after the native
-Windows image clipboard write. This is designed but not implemented.
+JPEG and PNG representations up to 16 MiB are chunked, integrity-checked, and
+assembled in memory. Success is acknowledged only after the native Windows
+image clipboard write. Safari PNG/JPEG and Photos-derived JPEG representations
+have reached the Windows clipboard; broader device testing remains in progress.
 
 ### Desktop lifecycle and distribution
 

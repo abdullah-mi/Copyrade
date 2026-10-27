@@ -41,7 +41,7 @@ yourself, file uploads, or cloud clipboard history.
 | Send text and links from iPhone to the Windows clipboard | Available |
 | Find registered PCs, see when they are online, and reconnect | Available |
 | Transfer clipboard content over an encrypted peer-to-peer connection | Available |
-| Send images, starting with JPEG and PNG | In development |
+| Send JPEG and PNG clipboard images to Windows | Available |
 | Automatically connect when only one registered PC is online | Planned |
 | Run quietly as a Windows background and tray app | Planned |
 | Share through an iPhone Shortcut or the iOS share menu | Planned |
@@ -128,7 +128,7 @@ Read the full [architecture](docs/architecture.md) and
 | Connections | Complete | Account-scoped signaling, automatic connection requests to a selected PC, disconnect handling, and explicit reconnects |
 | Text transfer | Complete | Bounded transfers, native Windows clipboard writes, and delivery acknowledgements |
 | Browser paste flow | Complete | Text, URLs, Safari PNG images, and Photos-derived JPEG images |
-| [Image transfer](https://github.com/abdullah-mi/Copyrade/milestone/2) | In progress | Bounded JPEG/PNG transfer, integrity checks, backpressure, cancellation, and native Windows image clipboard writes |
+| [Image transfer](https://github.com/abdullah-mi/Copyrade/milestone/2) | In progress | JPEG/PNG delivery, integrity checks, backpressure, and native Windows clipboard writes are working; cancellation and broader testing remain |
 | Automatic connection | Planned | Select and connect automatically when exactly one registered PC is available |
 | [Windows alpha](https://github.com/abdullah-mi/Copyrade/milestone/3) | Planned | Tray/background behavior, launch at login, sleep/wake recovery, packaging, signing, and installation testing |
 | More account options | Planned | Email/password accounts and short-lived account-less pairing codes |

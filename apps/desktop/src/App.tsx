@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
-import { handleIncomingTextTransfer } from '@copyrade/transfer'
+import { ImageTransferReceiver, handleIncomingTextTransfer } from '@copyrade/transfer'
 import './App.css'
 
 const connection = new DevelopmentConnection()
@@ -73,12 +73,28 @@ function App() {
   }, [enrollmentState])
 
   useEffect(() => {
+    const imageReceiver = new ImageTransferReceiver({
+      writeImage: (mimeType, bytes) => window.copyrade.clipboard.writeImage(mimeType, bytes),
+      send: (message) => connection.sendData(message),
+      onWriteStart: () => {
+        setStatus('writing')
+        setStatusMessage('Writing received image to the Windows clipboard...')
+      },
+      onWriteComplete: () => {
+        setStatus('success')
+        setStatusMessage('The received image is ready to paste.')
+      },
+    })
     const unsubscribeState = connection.subscribe((state) => {
       setConnectionState(state)
       setConnectionError(connection.error ?? '')
+      if (state !== 'connected') imageReceiver.connectionClosed()
     })
     const unsubscribeMessages = connection.subscribeMessages((raw) => {
       void (async () => {
+        if (await imageReceiver.handleMessage(raw)) {
+          return
+        }
         const result = await handleIncomingTextTransfer(raw, {
           writeText: (text) => window.copyrade.clipboard.writeText(text),
           send: (message) => connection.sendData(message),
@@ -103,6 +119,7 @@ function App() {
     return () => {
       unsubscribeState()
       unsubscribeMessages()
+      imageReceiver.dispose()
     }
   }, [])
 

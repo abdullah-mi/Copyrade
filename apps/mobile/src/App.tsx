@@ -8,7 +8,12 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
 import { DevelopmentConnection, type ConnectionState } from '@copyrade/connection'
-import { TextTransferSender, type OutgoingTransferResult } from '@copyrade/transfer'
+import {
+  ImageTransferSender,
+  TextTransferSender,
+  type OutgoingTransferResult,
+} from '@copyrade/transfer'
+import type { ImageMimeType } from '@copyrade/protocol'
 import { authClient } from './auth-client'
 import './App.css'
 
@@ -112,12 +117,14 @@ function App() {
     'Connect to a Windows device.',
   )
   const transferSender = useRef<TextTransferSender | null>(null)
+  const imageTransferSender = useRef<ImageTransferSender | null>(null)
   const textSource = useRef<TextSource>('manual')
   const transferInFlight = useRef(false)
   const activeTransferText = useRef('')
   const queuedTransferText = useRef('')
   const lastSentText = useRef('')
   const clipboardImage = useRef<Blob | null>(null)
+  const pendingImage = useRef<Blob | null>(null)
   const pasteRequestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function clearPasteRequestTimer() {
@@ -159,6 +166,46 @@ function App() {
       return false
     }
   }, [])
+
+  const sendImage = useCallback(async (blob: Blob) => {
+    if (connection.state !== 'connected' || !imageTransferSender.current) {
+      setTransferStatus('idle')
+      setTransferMessage('Image is ready. Connect to Windows to send it.')
+      return false
+    }
+    if (transferInFlight.current) {
+      setTransferStatus('error')
+      setTransferMessage('Wait for the current transfer to finish.')
+      return false
+    }
+    if (blob.type !== 'image/png' && blob.type !== 'image/jpeg') {
+      setTransferStatus('error')
+      setTransferMessage('Copyrade currently supports PNG and JPEG images.')
+      return false
+    }
+    transferInFlight.current = true
+    setTransferStatus('sending')
+    setTransferMessage('Sending image...')
+    try {
+      const bytes = new Uint8Array(await blob.arrayBuffer())
+      await imageTransferSender.current.sendImage(blob.type as ImageMimeType, bytes)
+      return true
+    } catch (error) {
+      transferInFlight.current = false
+      setTransferStatus('error')
+      setTransferMessage(error instanceof Error ? error.message : 'The image could not be sent.')
+      return false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (connectionState !== 'connected' || !pendingImage.current) return
+    const image = pendingImage.current
+    pendingImage.current = null
+    void sendImage(image).then((started) => {
+      if (!started) pendingImage.current = image
+    })
+  }, [connectionState, sendImage])
 
   useEffect(() => {
     let disposed = false
@@ -336,6 +383,14 @@ function App() {
       queuedTransferText.current = ''
       if (queuedText && queuedText !== completedText && connection.state === 'connected') {
         queueMicrotask(() => sendText(queuedText))
+      } else if (pendingImage.current && connection.state === 'connected') {
+        const image = pendingImage.current
+        pendingImage.current = null
+        queueMicrotask(() => {
+          void sendImage(image).then((started) => {
+            if (!started) pendingImage.current = image
+          })
+        })
       }
     }
 
@@ -343,22 +398,49 @@ function App() {
       (message) => connection.sendData(message),
       handleTransferResult,
     )
+    const imageSender = new ImageTransferSender(
+      (message) => connection.sendDataWithBackpressure(message),
+      (result) => {
+        transferInFlight.current = false
+        if (result.ok) {
+          setTransferStatus('success')
+          setTransferMessage(`Sent successfully at ${new Date().toLocaleTimeString()}.`)
+        } else {
+          setTransferStatus('error')
+          setTransferMessage(
+            result.remoteMessage ?? (
+              result.reason === 'timeout'
+                ? 'Windows did not acknowledge the image in time.'
+                : 'The image transfer did not complete.'
+            ),
+          )
+        }
+      },
+    )
     transferSender.current = sender
+    imageTransferSender.current = imageSender
     const unsubscribeState = connection.subscribe((state) => {
       setConnectionState(state)
       setConnectionError(connection.error ?? '')
       if (state === 'disconnected' || state === 'failed') setActiveDeviceId(null)
-      if (state !== 'connected') sender.connectionClosed()
+      if (state !== 'connected') {
+        sender.connectionClosed()
+        imageSender.connectionClosed()
+      }
     })
-    const unsubscribeMessages = connection.subscribeMessages((raw) => sender.handleMessage(raw))
+    const unsubscribeMessages = connection.subscribeMessages((raw) => {
+      if (!sender.handleMessage(raw)) imageSender.handleMessage(raw)
+    })
 
     return () => {
       unsubscribeState()
       unsubscribeMessages()
       sender.dispose()
+      imageSender.dispose()
       if (transferSender.current === sender) transferSender.current = null
+      if (imageTransferSender.current === imageSender) imageTransferSender.current = null
     }
-  }, [sendText])
+  }, [sendImage, sendText])
 
   useEffect(() => {
     if (
@@ -421,6 +503,7 @@ function App() {
 
     const dimensions = await getImageDimensions(blob)
     clipboardImage.current = blob
+    pendingImage.current = blob
     textSource.current = 'manual'
     setClipboardText('')
     setShowImagePicker(false)
@@ -429,11 +512,20 @@ function App() {
       `${blob.type} · ${dimensions.width.toLocaleString()} × ${dimensions.height.toLocaleString()} · ${formatImageSize(blob.size)}`,
     )
     setTransferStatus('idle')
-    setTransferMessage('Image transfer is not implemented yet.')
+    setTransferMessage(
+      connection.state === 'connected'
+        ? 'Image is ready to send.'
+        : 'Image is ready. Connect to Windows to send it.',
+    )
+    if (connection.state === 'connected') {
+      pendingImage.current = null
+      if (!await sendImage(blob)) pendingImage.current = blob
+    }
   }
 
   function acceptPastedText(text: string) {
     clipboardImage.current = null
+    pendingImage.current = null
     textSource.current = 'clipboard'
     setClipboardText(text)
     setShowImagePicker(false)
@@ -480,6 +572,7 @@ function App() {
     const containsFile = [...data.files].length > 0
       || [...data.items].some((item) => item.kind === 'file')
     clipboardImage.current = null
+    pendingImage.current = null
     setShowImagePicker(true)
     setStatus('error')
     setStatusMessage(
@@ -534,6 +627,7 @@ function App() {
   function handleClearPreview() {
     clearPasteRequestTimer()
     clipboardImage.current = null
+    pendingImage.current = null
     textSource.current = 'manual'
     setClipboardText('')
     setShowImagePicker(false)
@@ -546,6 +640,7 @@ function App() {
   function handleTextChange(value: string) {
     clearPasteRequestTimer()
     clipboardImage.current = null
+    pendingImage.current = null
     textSource.current = 'manual'
     setClipboardText(value)
     setShowImagePicker(false)

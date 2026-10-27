@@ -7,6 +7,7 @@ const MOBILE_CONNECTION_TIMEOUT_MS = 15_000
 const DISCONNECTION_GRACE_PERIOD_MS = 5_000
 const FAILURE_GRACE_PERIOD_MS = 1_000
 const textEncoder = new TextEncoder()
+const DATA_BUFFER_LOW_WATER_MARK = 256 * 1024
 
 export class DevelopmentConnection {
   private socket: WebSocket | null = null
@@ -144,6 +145,32 @@ export class DevelopmentConnection {
       throw new RangeError('The message exceeds this connection\'s negotiated size limit.')
     }
     this.channel.send(message)
+  }
+
+  async sendDataWithBackpressure(message: string): Promise<void> {
+    const channel = this.channel
+    if (channel?.readyState !== 'open') throw new Error('The peer connection is not ready.')
+    if (channel.bufferedAmount > DATA_BUFFER_LOW_WATER_MARK) {
+      channel.bufferedAmountLowThreshold = DATA_BUFFER_LOW_WATER_MARK
+      await new Promise<void>((resolve, reject) => {
+        const onLow = () => {
+          cleanup()
+          resolve()
+        }
+        const onClose = () => {
+          cleanup()
+          reject(new Error('The peer connection closed during transfer.'))
+        }
+        const cleanup = () => {
+          channel.removeEventListener('bufferedamountlow', onLow)
+          channel.removeEventListener('close', onClose)
+        }
+        channel.addEventListener('bufferedamountlow', onLow, { once: true })
+        channel.addEventListener('close', onClose, { once: true })
+        if (channel.bufferedAmount <= DATA_BUFFER_LOW_WATER_MARK) onLow()
+      })
+    }
+    this.sendData(message)
   }
 
   async connect(role: Role, code: string, url: string): Promise<void> {

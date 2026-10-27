@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const CLIPBOARD_WRITE_CHANNEL = 'clipboard:write-text'
+const CLIPBOARD_WRITE_IMAGE_CHANNEL = 'clipboard:write-image'
 const DEVICE_STATUS_CHANNEL = 'device:status'
 const DEVICE_ENROLL_START_CHANNEL = 'device:enroll-start'
 const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
@@ -11,6 +12,8 @@ contextBridge.exposeInMainWorld('copyrade', {
   clipboard: {
     writeText: (text: string): Promise<unknown> =>
       ipcRenderer.invoke(CLIPBOARD_WRITE_CHANNEL, text),
+    writeImage: (mimeType: 'image/png' | 'image/jpeg', bytes: Uint8Array): Promise<unknown> =>
+      ipcRenderer.invoke(CLIPBOARD_WRITE_IMAGE_CHANNEL, mimeType, bytes),
   },
   device: {
     getStatus: (): Promise<unknown> => ipcRenderer.invoke(DEVICE_STATUS_CHANNEL),

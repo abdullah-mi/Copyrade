@@ -6,6 +6,8 @@ import {
   encodeProtocolMessage,
 } from '@copyrade/protocol'
 import {
+  ImageTransferReceiver,
+  ImageTransferSender,
   TextTransferSender,
   handleIncomingTextTransfer,
   type OutgoingTransferResult,
@@ -135,6 +137,66 @@ describe('TextTransferSender', () => {
     shouldFail = false
     assert.doesNotThrow(() => sender.sendText('second'))
     sender.dispose()
+  })
+})
+
+describe('image transfer', () => {
+  it('chunks, verifies, writes, and acknowledges an image', async () => {
+    const outbound: string[] = []
+    const acknowledgements: string[] = []
+    const results: OutgoingTransferResult[] = []
+    const bytes = Uint8Array.from({ length: 50_000 }, (_, index) => index % 251)
+    const sender = new ImageTransferSender(
+      async (message) => { outbound.push(message) },
+      (result) => results.push(result),
+      { createId: () => transferId },
+    )
+    const receiver = new ImageTransferReceiver({
+      writeImage: async (mimeType, received) => {
+        assert.equal(mimeType, 'image/png')
+        assert.deepEqual(received, bytes)
+        return { ok: true, byteLength: received.byteLength }
+      },
+      send: (message) => acknowledgements.push(message),
+    })
+
+    await sender.sendImage('image/png', bytes)
+    assert.equal(outbound.length, 4)
+    for (const message of outbound) assert.equal(await receiver.handleMessage(message), true)
+    assert.equal(acknowledgements.length, 1)
+    assert.equal(sender.handleMessage(acknowledgements[0]), true)
+    assert.deepEqual(results, [{ ok: true, transferId, byteLength: bytes.byteLength }])
+    sender.dispose()
+    receiver.dispose()
+  })
+
+  it('rejects an incomplete image without writing it', async () => {
+    const outbound: string[] = []
+    const responses: string[] = []
+    let writes = 0
+    const sender = new ImageTransferSender(
+      async (message) => { outbound.push(message) },
+      () => {},
+      { createId: () => transferId },
+    )
+    const receiver = new ImageTransferReceiver({
+      writeImage: async () => {
+        writes += 1
+        return { ok: true, byteLength: 1 }
+      },
+      send: (message) => responses.push(message),
+    })
+
+    await sender.sendImage('image/jpeg', new Uint8Array(50_000).fill(1))
+    await receiver.handleMessage(outbound[0])
+    await receiver.handleMessage(outbound[1])
+    await receiver.handleMessage(outbound.at(-1))
+    assert.equal(writes, 0)
+    assert.equal(responses.length, 1)
+    const response = decodeProtocolMessage(responses[0])
+    assert.equal(response.ok && response.message.kind === 'ERROR', true)
+    sender.dispose()
+    receiver.dispose()
   })
 })
 
