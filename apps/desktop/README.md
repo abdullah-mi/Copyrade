@@ -41,6 +41,7 @@ npm start --workspace @copyrade/desktop
 - Closing the window keeps the receiver online in the Windows notification
   area. Click the tray icon to restore it or use **Quit Copyrade** to stop it.
 
-Launch-at-login, sleep/wake recovery, and Windows packaging remain planned. See
+Automatic recovery after Windows power or network transitions is in
+development. Launch-at-login and Windows packaging remain planned. See
 the [developer guide](../../docs/getting-started.md) and [security
 boundaries](../../docs/security.md).
