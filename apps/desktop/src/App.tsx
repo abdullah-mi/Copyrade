@@ -171,6 +171,7 @@ function App() {
     let disposed = false
     let socket: WebSocket | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null
     let retryDelay = 1_000
 
     const connectPresence = async () => {
@@ -188,6 +189,10 @@ function App() {
         'copyrade-presence-v1',
         authorization.ticket,
       ])
+      socket.onopen = () => {
+        socket?.send('ping')
+        heartbeatTimer = setInterval(() => socket?.send('ping'), 10_000)
+      }
       socket.onmessage = (event) => {
         if (typeof event.data !== 'string' || event.data.length > 1024) return
         try {
@@ -205,6 +210,8 @@ function App() {
       }
       socket.onclose = () => {
         if (disposed) return
+        if (heartbeatTimer) clearInterval(heartbeatTimer)
+        heartbeatTimer = null
         socket = null
         setPresenceState('offline')
         reconnectTimer = setTimeout(() => void connectPresence(), retryDelay)
@@ -217,6 +224,7 @@ function App() {
     return () => {
       disposed = true
       if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (heartbeatTimer) clearInterval(heartbeatTimer)
       socket?.close(1000, 'Presence stopped')
     }
   }, [enrollmentState, handleConnect, recoveryGeneration])

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { isValidSignal, shouldNotifyPeerOnClose } from './account-coordinator.js'
+import {
+  isPresenceFresh,
+  isValidSignal,
+  shouldNotifyPeerOnClose,
+} from './account-coordinator.js'
 
 describe('authenticated signaling validation', () => {
   it('accepts bounded SDP and browser candidates', () => {
@@ -44,5 +48,19 @@ describe('signaling socket replacement', () => {
     assert.equal(shouldNotifyPeerOnClose(4001), false)
     assert.equal(shouldNotifyPeerOnClose(1000), true)
     assert.equal(shouldNotifyPeerOnClose(1011), true)
+  })
+})
+
+describe('desktop presence freshness', () => {
+  const now = 100_000
+
+  it('allows a new socket time to send its first heartbeat', () => {
+    assert.equal(isPresenceFresh(null, now - 24_999, now), true)
+    assert.equal(isPresenceFresh(null, now - 25_001, now), false)
+  })
+
+  it('uses the latest heartbeat instead of the socket creation time', () => {
+    assert.equal(isPresenceFresh(new Date(now - 24_999), 0, now), true)
+    assert.equal(isPresenceFresh(new Date(now - 25_001), now, now), false)
   })
 })

@@ -295,6 +295,7 @@ function App() {
     let disposed = false
     let socket: WebSocket | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let refreshTimer: ReturnType<typeof setInterval> | null = null
     let retryDelay = 1_000
 
     const connectPresence = async () => {
@@ -308,6 +309,10 @@ function App() {
           'copyrade-presence-v1',
           authorization.ticket,
         ])
+        socket.onopen = () => {
+          socket?.send('refresh')
+          refreshTimer = setInterval(() => socket?.send('refresh'), 10_000)
+        }
         socket.onmessage = (event) => {
           if (typeof event.data !== 'string' || event.data.length > 4096) return
           try {
@@ -327,6 +332,8 @@ function App() {
         }
         socket.onclose = () => {
           if (disposed) return
+          if (refreshTimer) clearInterval(refreshTimer)
+          refreshTimer = null
           socket = null
           reconnectTimer = setTimeout(() => void connectPresence(), retryDelay)
           retryDelay = Math.min(retryDelay * 2, 30_000)
@@ -343,6 +350,7 @@ function App() {
     return () => {
       disposed = true
       if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (refreshTimer) clearInterval(refreshTimer)
       socket?.close(1000, 'Presence stopped')
     }
   }, [session, refreshDevices])

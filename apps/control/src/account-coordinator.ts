@@ -15,6 +15,7 @@ type SignalAttachment = {
 type PresenceAttachment = {
   kind: 'presence'
   deviceId: string
+  connectedAt: number
 }
 
 type ObserverAttachment = {
@@ -24,6 +25,16 @@ type ObserverAttachment = {
 type ConnectionAttachment = SignalAttachment | PresenceAttachment | ObserverAttachment
 
 const SIGNAL_TYPES = new Set(['offer', 'answer', 'candidate'])
+const PRESENCE_MAX_AGE_MS = 25_000
+
+export function isPresenceFresh(
+  lastHeartbeat: Date | null,
+  connectedAt: number,
+  now = Date.now(),
+): boolean {
+  const lastSeen = lastHeartbeat?.getTime() ?? connectedAt
+  return Number.isFinite(lastSeen) && lastSeen > now - PRESENCE_MAX_AGE_MS
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -72,7 +83,9 @@ function attachment(socket: WebSocket): ConnectionAttachment | null {
     if (!isRecord(value)) return null
     if (value.kind === 'observer') return { kind: 'observer' }
     if (typeof value.deviceId !== 'string') return null
-    if (value.kind === 'presence') return { kind: 'presence', deviceId: value.deviceId }
+    if (value.kind === 'presence' && typeof value.connectedAt === 'number') {
+      return { kind: 'presence', deviceId: value.deviceId, connectedAt: value.connectedAt }
+    }
     if (
       value.kind === 'signal' &&
       (value.role === 'desktop' || value.role === 'mobile')
@@ -89,7 +102,11 @@ export class AccountCoordinator {
   constructor(
     private readonly state: DurableObjectState,
     private readonly env: AccountCoordinatorEnvironment,
-  ) {}
+  ) {
+    this.state.setWebSocketAutoResponse(
+      new WebSocketRequestResponsePair('ping', 'pong'),
+    )
+  }
 
   private sockets(): WebSocket[] {
     return this.state.getWebSockets()
@@ -108,16 +125,27 @@ export class AccountCoordinator {
   private presenceFor(deviceId: string): WebSocket | null {
     return this.sockets().find((socket) => {
       const value = attachment(socket)
-      return value?.kind === 'presence' && value.deviceId === deviceId
+      return value?.kind === 'presence' &&
+        value.deviceId === deviceId &&
+        isPresenceFresh(
+          this.state.getWebSocketAutoResponseTimestamp(socket),
+          value.connectedAt,
+        )
     }) ?? null
   }
 
   private onlineDeviceIds(): string[] {
     return [...new Set(
       this.sockets()
-        .map(attachment)
-        .filter((value): value is PresenceAttachment => value?.kind === 'presence')
-        .map((value) => value.deviceId),
+        .map((socket) => ({ socket, value: attachment(socket) }))
+        .filter((entry): entry is { socket: WebSocket; value: PresenceAttachment } => {
+          return entry.value?.kind === 'presence'
+        })
+        .filter(({ socket, value }) => isPresenceFresh(
+          this.state.getWebSocketAutoResponseTimestamp(socket),
+          value.connectedAt,
+        ))
+        .map(({ value }) => value.deviceId),
     )]
   }
 
@@ -239,7 +267,11 @@ export class AccountCoordinator {
       }
       const pair = new WebSocketPair()
       const [client, server] = Object.values(pair)
-      server.serializeAttachment({ kind: 'presence', deviceId } satisfies PresenceAttachment)
+      server.serializeAttachment({
+        kind: 'presence',
+        deviceId,
+        connectedAt: Date.now(),
+      } satisfies PresenceAttachment)
       this.state.acceptWebSocket(server)
       this.safelySend(server, JSON.stringify({ type: 'ready' }))
       this.notifyObservers()
@@ -276,8 +308,20 @@ export class AccountCoordinator {
   }
 
   webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): void {
-    if (attachment(socket)?.kind === 'presence') {
+    const own = attachment(socket)
+    if (own?.kind === 'presence') {
       socket.close(1008, 'Presence sockets do not accept messages')
+      return
+    }
+    if (own?.kind === 'observer') {
+      if (message === 'refresh') {
+        this.safelySend(
+          socket,
+          JSON.stringify({ type: 'presence', deviceIds: this.onlineDeviceIds() }),
+        )
+      } else {
+        socket.close(1008, 'Invalid presence message')
+      }
       return
     }
     if (typeof message !== 'string' || message.length > 16_384) {
