@@ -22,6 +22,8 @@ function App() {
   const [enrollmentMessage, setEnrollmentMessage] = useState('Checking device registration...')
   const [presenceState, setPresenceState] = useState<PresenceState>('offline')
   const [recoveryGeneration, setRecoveryGeneration] = useState(0)
+  const [launchAtLogin, setLaunchAtLogin] = useState<boolean | null>(null)
+  const [startupMessage, setStartupMessage] = useState('')
   const recoveryGenerationRef = useRef(0)
   const enrollmentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -66,6 +68,15 @@ function App() {
       if (enrollmentTimer.current) clearTimeout(enrollmentTimer.current)
     }
   }, [refreshDeviceStatus])
+
+  useEffect(() => {
+    void window.copyrade.system.getLoginItemStatus().then((result) => {
+      setLaunchAtLogin(result.supported ? result.enabled : null)
+      if (result.error) setStartupMessage(result.error)
+    }).catch(() => {
+      setStartupMessage('The Windows startup setting could not be read.')
+    })
+  }, [])
 
   useEffect(() => {
     if (enrollmentState !== 'enrolled') return
@@ -252,6 +263,23 @@ function App() {
     }
   }
 
+  async function handleLaunchAtLogin(enabled: boolean) {
+    setStartupMessage('Saving startup setting...')
+    try {
+      const result = await window.copyrade.system.setLoginItem(enabled)
+      if (result.error) {
+        setStartupMessage(result.error)
+        return
+      }
+      setLaunchAtLogin(result.enabled)
+      setStartupMessage(result.enabled
+        ? 'Copyrade will start in the notification area when you sign in.'
+        : 'Copyrade will not start automatically.')
+    } catch {
+      setStartupMessage('The Windows startup setting could not be changed.')
+    }
+  }
+
   function handleTextChange(value: string) {
     setText(value)
     setStatus('idle')
@@ -336,6 +364,20 @@ function App() {
           <p role={enrollmentState === 'error' ? 'alert' : 'status'}>
             {enrollmentMessage}
           </p>
+        </section>
+
+        <section aria-labelledby="startup-title">
+          <h2 id="startup-title">Startup</h2>
+          <label className="startup-setting">
+            <input
+              type="checkbox"
+              checked={launchAtLogin ?? false}
+              disabled={launchAtLogin === null}
+              onChange={(event) => void handleLaunchAtLogin(event.target.checked)}
+            />
+            <span>Start Copyrade when I sign in to Windows</span>
+          </label>
+          {startupMessage && <p role="status">{startupMessage}</p>}
         </section>
 
         <label htmlFor="clipboard-text">Clipboard test</label>

@@ -141,8 +141,10 @@ packaged app to adopt the final product artwork without a second tray asset.
 The primary distribution target remains an installed, per-user Windows
 application packaged with Electron Forge. The current receiver resets stale
 presence, signaling, and peer state after suspend/resume or a network
-online/offline transition. Opt-in startup,
-signing, update policy, and clean-machine installer tests remain planned. There
+online/offline transition. An opt-in Windows login setting registers either the
+installed executable or, during development, Electron plus the current app
+path. Automatic starts use a dedicated argument and keep the window hidden in
+the notification area. Signing, update policy, and clean-machine installer tests remain planned. There
 is currently no public Windows build.
 
 ### Original files
