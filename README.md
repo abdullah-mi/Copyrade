@@ -130,7 +130,7 @@ Read the full [architecture](docs/architecture.md) and
 | Browser paste flow | Complete | Text, URLs, Safari PNG images, and Photos-derived JPEG images |
 | [Image transfer](https://github.com/abdullah-mi/Copyrade/milestone/2) | In progress | JPEG/PNG delivery, integrity checks, backpressure, and native Windows clipboard writes are working; cancellation and broader testing remain |
 | Automatic connection | Planned | Select and connect automatically when exactly one registered PC is available |
-| [Windows alpha](https://github.com/abdullah-mi/Copyrade/milestone/3) | In progress | Tray/background behavior is working; connection recovery is in development, followed by launch at login, packaging, signing, and installation testing |
+| [Windows alpha](https://github.com/abdullah-mi/Copyrade/milestone/3) | In progress | Tray/background behavior, connection recovery, and optional launch at login are working; packaging, signing, and installation testing remain |
 | More account options | Planned | Email/password accounts and short-lived account-less pairing codes |
 | iPhone and mobile apps | Planned | Faster sharing through an iPhone Shortcut or share-menu integration, followed by a dedicated mobile app |
 | Network modes | Planned | Direct-only mode, longer-term LAN-only operation, and an encrypted relay fallback for restrictive networks |

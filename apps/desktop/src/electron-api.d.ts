@@ -29,8 +29,16 @@ interface CopyradeDesktopApi {
     getPresenceTicket(): Promise<PresenceTicketResult>
   }
   system: {
+    getLoginItemStatus(): Promise<LoginItemStatus>
+    setLoginItem(enabled: boolean): Promise<LoginItemStatus>
     onPowerEvent(listener: (event: 'suspend' | 'resume') => void): () => void
   }
+}
+
+type LoginItemStatus = {
+  supported: boolean
+  enabled: boolean
+  error?: string
 }
 
 type EnrolledDevice = {

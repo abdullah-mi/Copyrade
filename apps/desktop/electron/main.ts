@@ -19,6 +19,7 @@ import {
 } from './clipboard-request.js'
 import type { ClipboardWriteResult } from './clipboard-request.js'
 import { DeviceEnrollmentManager } from './device-enrollment.js'
+import { loginItemTarget, shouldStartHidden } from './launch-at-login.js'
 import { shouldHideWindowOnClose } from './window-lifecycle.js'
 
 const CLIPBOARD_WRITE_CHANNEL = 'clipboard:write-text'
@@ -29,6 +30,8 @@ const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
 const DEVICE_SIGNAL_TICKET_CHANNEL = 'device:signal-ticket'
 const DEVICE_PRESENCE_TICKET_CHANNEL = 'device:presence-ticket'
 const SYSTEM_POWER_CHANNEL = 'system:power'
+const SYSTEM_LOGIN_ITEM_STATUS_CHANNEL = 'system:login-item-status'
+const SYSTEM_LOGIN_ITEM_SET_CHANNEL = 'system:login-item-set'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -104,13 +107,14 @@ async function writeClipboardImage(
   }
 }
 
-function createWindow(): void {
+function createWindow(show = true): void {
   mainWindow = new BrowserWindow({
     width: 720,
     height: 680,
     minWidth: 520,
     minHeight: 560,
     backgroundColor: '#f4f7fb',
+    show,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -140,6 +144,38 @@ function createWindow(): void {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+}
+
+function currentLoginItemTarget() {
+  return loginItemTarget({
+    appPath: app.getAppPath(),
+    execPath: process.execPath,
+    isPackaged: app.isPackaged,
+  })
+}
+
+function loginItemStatus() {
+  if (process.platform !== 'win32') return { supported: false, enabled: false }
+  const target = currentLoginItemTarget()
+  const settings = app.getLoginItemSettings(target)
+  return {
+    supported: true,
+    enabled: settings.openAtLogin || settings.executableWillLaunchAtLogin,
+  }
+}
+
+function setLoginItem(enabled: unknown) {
+  if (process.platform !== 'win32') return { supported: false, enabled: false }
+  if (typeof enabled !== 'boolean') {
+    return { supported: true, enabled: false, error: 'Invalid startup setting.' }
+  }
+  const target = currentLoginItemTarget()
+  app.setLoginItemSettings({
+    ...target,
+    name: 'Copyrade',
+    openAtLogin: enabled,
+  })
+  return loginItemStatus()
 }
 
 function showMainWindow(): void {
@@ -206,13 +242,25 @@ ipcMain.handle(DEVICE_PRESENCE_TICKET_CHANNEL, (event) => {
   }
   return deviceEnrollment.presenceTicket()
 })
+ipcMain.handle(SYSTEM_LOGIN_ITEM_STATUS_CHANNEL, (event) => {
+  if (!isTrustedSender(event.senderFrame)) {
+    return { supported: true, enabled: false, error: 'The startup request was not trusted.' }
+  }
+  return loginItemStatus()
+})
+ipcMain.handle(SYSTEM_LOGIN_ITEM_SET_CHANNEL, (event, enabled: unknown) => {
+  if (!isTrustedSender(event.senderFrame)) {
+    return { supported: true, enabled: false, error: 'The startup request was not trusted.' }
+  }
+  return setLoginItem(enabled)
+})
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    showMainWindow()
+  app.on('second-instance', (_event, commandLine) => {
+    if (!shouldStartHidden(commandLine)) showMainWindow()
   })
 }
 
@@ -224,7 +272,7 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
   await createTray().catch(() => {
     tray = null
   })
-  createWindow()
+  createWindow(!shouldStartHidden(process.argv))
 
   powerMonitor.on('suspend', () => {
     mainWindow?.webContents.send(SYSTEM_POWER_CHANNEL, 'suspend')

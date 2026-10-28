@@ -29,6 +29,8 @@ running Safari on iOS 26.4.1 and the Electron receiver on Windows. This includes
 - acquisition and Windows clipboard delivery of Safari PNG/JPEG images and
   Photos-derived JPEG representations;
 - Windows close-to-tray, restore, explicit quit, and second-launch behavior.
+- Opt-in Windows launch-at-login registration, hidden startup after restart,
+  removal, and single-instance behavior from a source build.
 
 Earlier development tests also connected an iPhone and Windows PC across
 different networks. Testing is continuing across more browsers, Windows

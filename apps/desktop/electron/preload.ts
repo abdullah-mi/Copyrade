@@ -8,6 +8,8 @@ const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
 const DEVICE_SIGNAL_TICKET_CHANNEL = 'device:signal-ticket'
 const DEVICE_PRESENCE_TICKET_CHANNEL = 'device:presence-ticket'
 const SYSTEM_POWER_CHANNEL = 'system:power'
+const SYSTEM_LOGIN_ITEM_STATUS_CHANNEL = 'system:login-item-status'
+const SYSTEM_LOGIN_ITEM_SET_CHANNEL = 'system:login-item-set'
 
 contextBridge.exposeInMainWorld('copyrade', {
   clipboard: {
@@ -28,6 +30,10 @@ contextBridge.exposeInMainWorld('copyrade', {
       ipcRenderer.invoke(DEVICE_PRESENCE_TICKET_CHANNEL),
   },
   system: {
+    getLoginItemStatus: (): Promise<unknown> =>
+      ipcRenderer.invoke(SYSTEM_LOGIN_ITEM_STATUS_CHANNEL),
+    setLoginItem: (enabled: boolean): Promise<unknown> =>
+      ipcRenderer.invoke(SYSTEM_LOGIN_ITEM_SET_CHANNEL, enabled),
     onPowerEvent: (listener: (event: 'suspend' | 'resume') => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, value: unknown) => {
         if (value === 'suspend' || value === 'resume') listener(value)

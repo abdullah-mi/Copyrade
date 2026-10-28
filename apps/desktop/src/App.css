@@ -53,6 +53,18 @@ input {
   min-height: 3rem;
 }
 
+.startup-setting {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 400;
+}
+
+.startup-setting input {
+  width: auto;
+  min-height: auto;
+}
+
 textarea:focus-visible,
 input:focus-visible,
 button:focus-visible {

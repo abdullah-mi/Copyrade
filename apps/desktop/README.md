@@ -41,7 +41,15 @@ npm start --workspace @copyrade/desktop
 - Closing the window keeps the receiver online in the Windows notification
   area. Click the tray icon to restore it or use **Quit Copyrade** to stop it.
 
-Automatic recovery after Windows power or network transitions is in
-development. Launch-at-login and Windows packaging remain planned. See
+The optional **Start Copyrade when I sign in to Windows** setting launches the
+receiver directly into the notification area. In a source build, the Windows
+startup entry points to the current checkout and Electron executable. Disable
+the setting before moving or deleting the checkout. Packaged builds will
+register the installed Copyrade executable instead.
+
+Automatic recovery after Windows power or network transitions is working.
+Launch-at-login registration and removal have been validated from the source
+build, including a hidden start after Windows sign-in and single-instance
+behavior. Windows packaging remains to be tested. See
 the [developer guide](../../docs/getting-started.md) and [security
 boundaries](../../docs/security.md).
