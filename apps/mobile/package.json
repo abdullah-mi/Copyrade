@@ -13,8 +13,8 @@
     "@copyrade/connection": "0.0.0",
     "@copyrade/transfer": "0.0.0",
     "better-auth": "1.7.6",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

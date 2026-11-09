@@ -135,8 +135,8 @@ have reached the Windows clipboard; broader device testing remains in progress.
 
 The source-run receiver stays online when its window closes, restores from a
 Windows tray icon, provides an explicit quit action, and preserves its
-single-instance behavior. The tray uses the executable icon, allowing the
-packaged app to adopt the final product artwork without a second tray asset.
+single-instance behavior. The window and tray use dedicated Copyrade icon
+assets generated from the transparent mark artwork.
 
 The primary distribution target remains an installed, per-user Windows
 application packaged with Electron Forge. The current receiver resets stale

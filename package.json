@@ -14,6 +14,7 @@
   "scripts": {
     "build": "npm run build:shared && npm run build --workspace @copyrade/signal && npm run build --workspace @copyrade/mobile && npm run build --workspace @copyrade/desktop && npm run build --workspace @copyrade/control",
     "build:shared": "npm run build --workspace @copyrade/protocol && npm run build --workspace @copyrade/connection && npm run build --workspace @copyrade/transfer",
+    "make:windows": "npm run build:shared && npm run make:windows --workspace @copyrade/desktop",
     "check": "npm run lint && npm test && npm run build",
     "dev:connection": "npm run build:shared && concurrently --kill-others --names signal,mobile,desktop \"npm run dev --workspace @copyrade/signal\" \"npm run dev --workspace @copyrade/mobile\" \"npm start --workspace @copyrade/desktop\"",
     "dev:control": "npm run build --workspace @copyrade/mobile && concurrently --kill-others --names control,mobile \"npm run dev --workspace @copyrade/control\" \"npm run dev --workspace @copyrade/mobile\"",

@@ -1,7 +1,8 @@
 # Developer getting started
 
-Copyrade is in early development. The Windows receiver is not packaged, so all
-current testing starts from this repository.
+Copyrade is in early development. The Windows installer is undergoing internal
+testing; the supported way to try the receiver is to build it from this
+repository.
 
 ## Requirements
 
@@ -44,9 +45,8 @@ Safari requires a user action to read clipboard content and may display its
 native **Paste** callout. Backgrounding Safari can close the WebRTC connection;
 request a new connection after returning to the page.
 
-The web app is public, but the desktop receiver is not a packaged release.
-There is no signed installer, automatic update path, or broad compatibility
-guarantee yet.
+The web app is public, but there is no public desktop release, signed installer,
+or automatic update path yet. Compatibility testing is ongoing.
 
 ## Local unauthenticated connection diagnostic
 

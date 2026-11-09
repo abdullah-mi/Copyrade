@@ -1,0 +1,8 @@
+*.png
+*.svg
+*.webp
+*.pdf
+!Copyrade Mark.png
+!Copyrade Logo.svg
+!Copyrade Icon Coloured.svg
+!Copyrade Tray Icon Coloured.svg

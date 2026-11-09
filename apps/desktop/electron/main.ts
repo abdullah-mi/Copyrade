@@ -20,6 +20,7 @@ import {
 import type { ClipboardWriteResult } from './clipboard-request.js'
 import { DeviceEnrollmentManager } from './device-enrollment.js'
 import { loginItemTarget, shouldStartHidden } from './launch-at-login.js'
+import { handleSquirrelEvent } from './squirrel-events.js'
 import { shouldHideWindowOnClose } from './window-lifecycle.js'
 
 const CLIPBOARD_WRITE_CHANNEL = 'clipboard:write-text'
@@ -32,6 +33,8 @@ const DEVICE_PRESENCE_TICKET_CHANNEL = 'device:presence-ticket'
 const SYSTEM_POWER_CHANNEL = 'system:power'
 const SYSTEM_LOGIN_ITEM_STATUS_CHANNEL = 'system:login-item-status'
 const SYSTEM_LOGIN_ITEM_SET_CHANNEL = 'system:login-item-set'
+const DESKTOP_ICON_PATH = join(__dirname, '..', 'assets', 'copyrade.ico')
+const TRAY_ICON_PATH = join(__dirname, '..', 'assets', 'copyrade-tray.png')
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -114,6 +117,7 @@ function createWindow(show = true): void {
     minWidth: 520,
     minHeight: 560,
     backgroundColor: '#f4f7fb',
+    icon: DESKTOP_ICON_PATH,
     show,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
@@ -190,7 +194,8 @@ function showMainWindow(): void {
 
 async function createTray(): Promise<void> {
   if (process.platform !== 'win32' || tray) return
-  const icon = await app.getFileIcon(process.execPath, { size: 'small' })
+  const icon = nativeImage.createFromPath(TRAY_ICON_PATH)
+  if (icon.isEmpty()) throw new Error('Copyrade tray icon is unavailable.')
   tray = new Tray(icon)
   tray.setToolTip('Copyrade')
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -255,8 +260,9 @@ ipcMain.handle(SYSTEM_LOGIN_ITEM_SET_CHANNEL, (event, enabled: unknown) => {
   return setLoginItem(enabled)
 })
 
-const hasSingleInstanceLock = app.requestSingleInstanceLock()
-if (!hasSingleInstanceLock) {
+const isSquirrelEvent = handleSquirrelEvent(process.argv[1])
+const hasSingleInstanceLock = !isSquirrelEvent && app.requestSingleInstanceLock()
+if (!hasSingleInstanceLock && !isSquirrelEvent) {
   app.quit()
 } else {
   app.on('second-instance', (_event, commandLine) => {
