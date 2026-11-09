@@ -50,6 +50,29 @@ register the installed Copyrade executable instead.
 Automatic recovery after Windows power or network transitions is working.
 Launch-at-login registration and removal have been validated from the source
 build, including a hidden start after Windows sign-in and single-instance
-behavior. Windows packaging remains to be tested. See
+behavior. See
 the [developer guide](../../docs/getting-started.md) and [security
 boundaries](../../docs/security.md).
+
+## Build an internal Windows installer
+
+From the repository root on Windows, with Node.js 24 or newer:
+
+```powershell
+npm ci
+npm run make:windows
+```
+
+The Squirrel installer is written to `out/make/squirrel.windows/x64/`. This is
+an unsigned internal test build, not a public release. Forge packages a staged
+copy containing the compiled receiver, renderer, and selected icons; source,
+private notes, and development credentials are not included.
+
+Before installing it, turn off **Start Copyrade when I sign in to Windows** in
+the source-run receiver and quit that receiver from the tray. Install the new
+build and open Copyrade from the Start menu. The installed app uses a different
+Windows app-data directory from the source-run receiver, so approve the PC in
+the browser once for this internal build. Then test online presence, text and
+image transfers, close-to-tray behavior, and the installed startup toggle.
+Finally, uninstall it from Windows Settings and check that the source checkout
+still runs. This test has not yet been completed on a clean Windows account.

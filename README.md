@@ -1,85 +1,27 @@
-<h1 align="center">
-  Copyrade<br>
-  <sub>Your clipboard comrade.</sub>
-</h1>
-
 <p align="center">
-  <a href="https://copyrade-staging.abdullahijaz-m.workers.dev"><img alt="Copyrade web app: online" src="https://img.shields.io/badge/web%20app-online-2EA44F?logo=cloudflare&amp;logoColor=white"></a><br>
-  <a href="docs/getting-started.md"><img alt="Windows receiver: build from source" src="https://img.shields.io/badge/Windows%20receiver-source%20build-0078D4?logo=windows11&amp;logoColor=white"></a>
-  <a href="docs/compatibility.md"><img alt="Project status: early development" src="https://img.shields.io/badge/status-early%20development-D97706"></a>
-  <a href="LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-D22128?logo=apache&amp;logoColor=white"></a><br>
-  <a href="docs/architecture.md"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&amp;logoColor=white"></a>
-  <a href="docs/architecture.md"><img alt="React" src="https://img.shields.io/badge/React-61DAFB?logo=react&amp;logoColor=111111"></a>
-  <a href="docs/architecture.md"><img alt="Electron" src="https://img.shields.io/badge/Electron-47848F?logo=electron&amp;logoColor=white"></a>
-  <a href="docs/architecture.md"><img alt="WebRTC" src="https://img.shields.io/badge/WebRTC-333333?logo=webrtc&amp;logoColor=white"></a>
-  <a href="docs/architecture.md"><img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&amp;logoColor=white"></a>
+  <img src="apps/mobile/public/favicon.svg" width="88" alt="Copyrade icon">
 </p>
 
-**Copy on your phone. Paste on Windows.**
+<h1 align="center">Copyrade</h1>
+<p align="center">Your clipboard comrade.</p>
 
-Copyrade sends text from your phone to your Windows clipboard. No messaging
-yourself, file uploads, or cloud clipboard history.
+<p align="center">
+  <a href="https://copyrade-staging.abdullahijaz-m.workers.dev"><img alt="Open the web app" src="https://img.shields.io/badge/Open-web%20app-2EA44F"></a>
+  <a href="docs/getting-started.md"><img alt="Windows source build" src="https://img.shields.io/badge/Windows-source%20build-0078D4"></a>
+  <a href="LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/badge/License-Apache%202.0-555555"></a>
+</p>
 
-### [Launch Copyrade →](https://copyrade-staging.abdullahijaz-m.workers.dev)
+<p align="center">TypeScript · React · Electron · WebRTC · Cloudflare</p>
 
-[Setup guide](docs/getting-started.md) ·
-[Compatibility and tested devices](docs/compatibility.md)
+Copyrade sends text, links, and images from your phone's browser to the clipboard on your Windows PC. Open the [web app](https://copyrade-staging.abdullahijaz-m.workers.dev), connect to a PC registered to your account, and paste with `Ctrl+V`.
 
-> **Early development:** Phone-to-Windows text transfer is working. The Windows
-> receiver must currently be built from source; a downloadable app is planned.
+Copyrade is in early development. The web app is available now; the Windows installer is still undergoing testing. To try the receiver, build it from source using the steps below.
 
-## How it works
+## Get started
 
-1. **Copy** or type text on your phone.
-2. **Send** it to a registered Windows PC through Copyrade.
-3. **Paste** anywhere in Windows with `Ctrl+V`.
+You need Windows, [Node.js 24 or later (includes npm)](https://nodejs.org/en/download), [Git](https://git-scm.com/downloads), and a Google or GitHub account.
 
-## Features
-
-| What Copyrade can do | Availability |
-| --- | --- |
-| Send text and links from iPhone to the Windows clipboard | Available |
-| Find registered PCs, see when they are online, and reconnect | Available |
-| Transfer clipboard content over an encrypted peer-to-peer connection | Available |
-| Send JPEG and PNG clipboard images to Windows | Available |
-| Automatically connect when only one registered PC is online | Planned |
-| Run quietly as a Windows background and tray app | Available |
-| Share through an iPhone Shortcut or the iOS share menu | Planned |
-| Use a dedicated mobile app | Planned |
-| Pair without an account or sign in with email and password | Planned |
-| Choose local/direct-only networking or use an encrypted relay fallback | Planned |
-
-See [compatibility](docs/compatibility.md) for verified devices and connection
-help, or [report a problem](https://github.com/abdullah-mi/Copyrade/issues/new).
-
-## Why Copyrade
-
-- **Private by design:** Copyrade does not upload clipboard contents to its
-  backend or maintain a cloud clipboard history.
-- **Approved devices:** account sign-in, browser-approved enrollment, and
-  revocable device credentials control which PCs can receive content.
-- **Encrypted transport:** clipboard payloads travel over an encrypted WebRTC
-  DataChannel; the backend coordinates the connection.
-- **Meaningful confirmation:** the sender receives an acknowledgement after
-  Windows updates its clipboard, not merely after a network packet arrives.
-
-## Getting started
-
-Copyrade is not yet available as a downloadable Windows app. For now, you can
-try it by running the Windows receiver from source. This takes a few commands
-in PowerShell or another terminal.
-
-### Requirements
-
-- Windows;
-- [Node.js 24 or later](https://nodejs.org/en/download) (the installer includes npm);
-- [Git](https://git-scm.com/downloads);
-- a Google or GitHub account for sign-in.
-
-Clone the project, install its dependencies, build the shared packages, and
-start the receiver:
-
-```bash
+```powershell
 git clone https://github.com/abdullah-mi/Copyrade.git
 cd Copyrade
 npm ci
@@ -87,74 +29,46 @@ npm run build:shared
 npm start --workspace @copyrade/desktop
 ```
 
-The receiver connects to Copyrade's hosted service. The first time it runs,
-choose **Register this PC**; Copyrade opens the web app so you can sign in and
-approve the device. Then open [Copyrade](https://copyrade-staging.abdullahijaz-m.workers.dev)
-on your phone, select the online PC, connect, and paste your clipboard.
+In the desktop app, choose **Register this PC**. Sign in through the browser and approve the device. Then open the [web app](https://copyrade-staging.abdullahijaz-m.workers.dev) on your phone, choose your PC, and connect. [Full setup and troubleshooting](docs/getting-started.md).
 
-For the unauthenticated local room-code diagnostic, HTTPS phone access,
-individual workspace commands, or local control-plane setup, use the
-[developer getting-started guide](docs/getting-started.md).
+## Features
 
-## Privacy and architecture
+| Feature | Availability |
+| --- | --- |
+| Send text, links, and JPEG or PNG images to the Windows clipboard | Available |
+| See registered PCs and whether they are online | Available |
+| Reconnect and receive confirmation after a clipboard write | Available |
+| Run the Windows receiver in the tray and launch it at sign-in | Available |
+| Connect automatically when one PC is available | Planned |
+| Share from an iPhone Shortcut or a dedicated mobile app | Planned |
+| Sign in with email and password or pair without an account | Planned |
+| Use a local-only mode or an encrypted relay on restrictive networks | Planned |
 
-```mermaid
-flowchart LR
-    Phone[Mobile web app]
-    Cloud[Cloudflare<br/>accounts, devices, presence, signaling]
-    PC[Windows receiver]
+Image formats depend on what the phone's browser provides: iPhone Photos can supply a JPEG representation even when the original was PNG or HEIF. See [compatibility](docs/compatibility.md) for tested setups and known limitations, or [report a problem](https://github.com/abdullah-mi/Copyrade/issues/new).
 
-    Phone <-->|HTTPS / WSS metadata| Cloud
-    PC <-->|HTTPS / WSS metadata| Cloud
-    Phone <-->|Encrypted WebRTC DataChannel<br/>clipboard text| PC
-```
+## Privacy and connections
 
-- Copyrade uses Cloudflare to handle accounts, device pairing, online status,
-  and connection setup.
-- Clipboard content travels between devices over an encrypted WebRTC
-  DataChannel. It is not stored in Copyrade's backend or in a cloud clipboard
-  history.
-- Connections may fail on restrictive networks because TURN relay fallback is
-  not yet implemented.
+Copyrade uses Cloudflare for accounts, device approval, presence, and connection setup. Clipboard content travels between your devices over an encrypted WebRTC DataChannel; Copyrade's backend does not store it or maintain clipboard history. The receiver acknowledges delivery after Windows updates its clipboard.
 
-Read the full [architecture](docs/architecture.md) and
-[security and privacy boundaries](docs/security.md).
+Connections can fail on restrictive networks because TURN relay fallback has not been added yet. Read more about the [architecture](docs/architecture.md) and [security boundaries](docs/security.md).
 
 ## Roadmap
 
-| Area | Status | Technical work |
+| Milestone | Status | Scope |
 | --- | --- | --- |
-| Accounts and devices | Complete | Google/GitHub sign-in, verified-email linking, browser-approved enrollment, protected credentials, discovery, presence, and revocation |
-| Connections | Complete | Account-scoped signaling, automatic connection requests to a selected PC, disconnect handling, and explicit reconnects |
-| Text transfer | Complete | Bounded transfers, native Windows clipboard writes, and delivery acknowledgements |
-| Browser paste flow | Complete | Text, URLs, Safari PNG images, and Photos-derived JPEG images |
-| [Image transfer](https://github.com/abdullah-mi/Copyrade/milestone/2) | In progress | JPEG/PNG delivery, integrity checks, backpressure, and native Windows clipboard writes are working; cancellation and broader testing remain |
-| Automatic connection | Planned | Select and connect automatically when exactly one registered PC is available |
-| [Windows alpha](https://github.com/abdullah-mi/Copyrade/milestone/3) | In progress | Tray/background behavior, connection recovery, and optional launch at login are working; packaging, signing, and installation testing remain |
-| More account options | Planned | Email/password accounts and short-lived account-less pairing codes |
-| iPhone and mobile apps | Planned | Faster sharing through an iPhone Shortcut or share-menu integration, followed by a dedicated mobile app |
-| Network modes | Planned | Direct-only mode, longer-term LAN-only operation, and an encrypted relay fallback for restrictive networks |
-| Original files | Planned | Preserve HEIF, PDF, and other files with bounded temporary storage and cleanup |
-| Compatibility | In progress | Expand Android, browser, Windows-version, sleep/wake, and network testing |
+| Accounts, approved devices, and text transfer | Complete | Google/GitHub sign-in, device presence, authenticated signaling, and text delivery |
+| [Image transfer](https://github.com/abdullah-mi/Copyrade/milestone/2) | In progress | JPEG/PNG delivery works; finish cancellation and wider testing |
+| [Windows alpha](https://github.com/abdullah-mi/Copyrade/milestone/3) | In progress | Finish installer testing, signing, and distribution |
+| Faster sharing and connection | Planned | Automatic connection and an iPhone Shortcut |
+| More account and network options | Planned | Email/password, account-less pairing, local-only mode, and encrypted relay fallback |
+| Original files and mobile app | Planned | Preserve original file formats and build a dedicated mobile client |
 
-## Documentation
-
-- [Developer getting started](docs/getting-started.md)
-- [Architecture](docs/architecture.md)
-- [Security and privacy](docs/security.md)
-- [Compatibility](docs/compatibility.md)
-- [Text transfer protocol](docs/protocol.md)
-- [Unauthenticated development connection](docs/connection-spike.md)
-- [Architecture decisions](docs/decisions)
+For implementation details, see the [protocol](docs/protocol.md), [architecture decisions](docs/decisions), and [developer setup](docs/getting-started.md).
 
 ## Contributing
 
-Bug reports, technical feedback, documentation improvements, and focused pull
-requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a
-pull request.
+Bug reports, documentation improvements, and focused pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Copyright © 2026 Abdullah Ijaz. Copyrade is licensed under the
-[Apache License 2.0](LICENSE). Forks and redistributions must preserve the
-license and required attribution notices.
+Copyright © 2026 Abdullah Ijaz. Licensed under [Apache 2.0](LICENSE); see [NOTICE](NOTICE) for attribution.

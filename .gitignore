@@ -15,6 +15,7 @@ test-results/
 # Tool caches and generated metadata
 .vite/
 .cache/
+.npm-cache/
 .turbo/
 .eslintcache
 *.tsbuildinfo
