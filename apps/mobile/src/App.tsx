@@ -842,11 +842,11 @@ function App() {
         {enrollmentReview && (
           <section className="account" aria-labelledby="enrollment-title">
             <h2 id="enrollment-title">Register Windows device</h2>
-            <p>
-              Register <strong>{enrollmentReview.deviceName}</strong> to your
-              Copyrade account? Confirm that code{' '}
-              <strong>{enrollmentReview.userCode}</strong> matches the Windows app.
-            </p>
+            {!enrollmentReview.approved && (
+              <p>
+                Add <strong>{enrollmentReview.deviceName}</strong> to your account?
+              </p>
+            )}
             <button
               type="button"
               className="primary-button"

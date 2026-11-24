@@ -4,9 +4,10 @@ import { ImageTransferReceiver, handleIncomingTextTransfer } from '@copyrade/tra
 import './App.css'
 
 const connection = new DevelopmentConnection()
+const DEVICE_REVOKED_CLOSE_CODE = 4003
 
 type WriteStatus = 'idle' | 'writing' | 'success' | 'error'
-type EnrollmentState = 'loading' | 'unenrolled' | 'waiting' | 'enrolled' | 'error'
+type EnrollmentState = 'loading' | 'unenrolled' | 'starting' | 'waiting' | 'cancelling' | 'enrolled' | 'error'
 type PresenceState = 'offline' | 'connecting' | 'online'
 
 function App() {
@@ -17,7 +18,6 @@ function App() {
   const [statusMessage, setStatusMessage] = useState(
     'Enter text to test the Windows clipboard.',
   )
-  const [deviceName, setDeviceName] = useState('Windows PC')
   const [enrollmentState, setEnrollmentState] = useState<EnrollmentState>('loading')
   const [enrollmentMessage, setEnrollmentMessage] = useState('Checking device registration...')
   const [presenceState, setPresenceState] = useState<PresenceState>('offline')
@@ -25,7 +25,9 @@ function App() {
   const [launchAtLogin, setLaunchAtLogin] = useState<boolean | null>(null)
   const [startupMessage, setStartupMessage] = useState('')
   const recoveryGenerationRef = useRef(0)
+  const deviceStatusRequest = useRef(0)
   const enrollmentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const enrollmentAttempt = useRef(0)
 
   const resetReceiverConnections = useCallback(() => {
     recoveryGenerationRef.current += 1
@@ -35,9 +37,10 @@ function App() {
   }, [])
 
   const refreshDeviceStatus = useCallback(async () => {
+    const request = ++deviceStatusRequest.current
     try {
       const result = await window.copyrade.device.getStatus()
-      setDeviceName(result.suggestedName)
+      if (request !== deviceStatusRequest.current) return
       if (result.enrolled) {
         setEnrollmentState('enrolled')
         setEnrollmentMessage(
@@ -53,6 +56,7 @@ function App() {
         )
       }
     } catch {
+      if (request !== deviceStatusRequest.current) return
       setEnrollmentState('error')
       setEnrollmentMessage('The protected desktop bridge did not respond.')
     }
@@ -219,12 +223,18 @@ function App() {
           socket?.close(1008, 'Invalid presence message')
         }
       }
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         if (disposed) return
         if (heartbeatTimer) clearInterval(heartbeatTimer)
         heartbeatTimer = null
         socket = null
         setPresenceState('offline')
+        if (event.code === DEVICE_REVOKED_CLOSE_CODE) {
+          recoveryGenerationRef.current += 1
+          connection.disconnect()
+          void refreshDeviceStatus()
+          return
+        }
         reconnectTimer = setTimeout(() => void connectPresence(), retryDelay)
         retryDelay = Math.min(retryDelay * 2, 30_000)
       }
@@ -238,7 +248,7 @@ function App() {
       if (heartbeatTimer) clearInterval(heartbeatTimer)
       socket?.close(1000, 'Presence stopped')
     }
-  }, [enrollmentState, handleConnect, recoveryGeneration])
+  }, [enrollmentState, handleConnect, recoveryGeneration, refreshDeviceStatus])
 
   async function handleWriteClipboard() {
     setStatus('writing')
@@ -286,15 +296,21 @@ function App() {
     setStatusMessage('Enter text to test the Windows clipboard.')
   }
 
-  function scheduleEnrollmentPoll(intervalSeconds: number) {
+  function scheduleEnrollmentPoll(intervalSeconds: number, attempt: number) {
     if (enrollmentTimer.current) clearTimeout(enrollmentTimer.current)
     enrollmentTimer.current = setTimeout(() => {
-      void pollEnrollment()
+      void pollEnrollment(attempt)
     }, intervalSeconds * 1000)
   }
 
-  async function pollEnrollment() {
-    const result = await window.copyrade.device.pollEnrollment()
+  async function pollEnrollment(attempt: number) {
+    const result = await window.copyrade.device.pollEnrollment().catch(() => null)
+    if (attempt !== enrollmentAttempt.current) return
+    if (!result) {
+      setEnrollmentState('error')
+      setEnrollmentMessage('Could not check registration. Try again.')
+      return
+    }
     if (!result.ok) {
       setEnrollmentState('error')
       setEnrollmentMessage(result.error)
@@ -306,16 +322,20 @@ function App() {
       return
     }
 
-    setEnrollmentMessage(
-      `Approve code ${result.userCode} in the browser. This request expires at ${new Date(result.expiresAt).toLocaleTimeString()}.`,
-    )
-    scheduleEnrollmentPoll(result.intervalSeconds)
+    scheduleEnrollmentPoll(result.intervalSeconds, attempt)
   }
 
   async function handleStartEnrollment() {
-    setEnrollmentState('waiting')
+    const attempt = ++enrollmentAttempt.current
+    setEnrollmentState('starting')
     setEnrollmentMessage('Opening the Copyrade web app for approval...')
-    const result = await window.copyrade.device.startEnrollment(deviceName)
+    const result = await window.copyrade.device.startEnrollment().catch(() => null)
+    if (attempt !== enrollmentAttempt.current) return
+    if (!result) {
+      setEnrollmentState('error')
+      setEnrollmentMessage('Could not start registration. Try again.')
+      return
+    }
     if (!result.ok) {
       setEnrollmentState('error')
       setEnrollmentMessage(result.error)
@@ -327,10 +347,29 @@ function App() {
       return
     }
 
-    setEnrollmentMessage(
-      `Approve code ${result.userCode} in the browser. This request expires at ${new Date(result.expiresAt).toLocaleTimeString()}.`,
-    )
-    scheduleEnrollmentPoll(result.intervalSeconds)
+    setEnrollmentState('waiting')
+    setEnrollmentMessage('Approve this PC in your browser.')
+    scheduleEnrollmentPoll(result.intervalSeconds, attempt)
+  }
+
+  async function handleCancelEnrollment() {
+    ++enrollmentAttempt.current
+    if (enrollmentTimer.current) clearTimeout(enrollmentTimer.current)
+    setEnrollmentState('cancelling')
+    setEnrollmentMessage('Cancelling registration...')
+    try {
+      const result = await window.copyrade.device.cancelEnrollment()
+      if (result.state === 'enrolled') {
+        setEnrollmentState('enrolled')
+        setEnrollmentMessage(`${result.device.name} is registered to your account.`)
+      } else {
+        setEnrollmentState('unenrolled')
+        setEnrollmentMessage('Registration cancelled. You can start again.')
+      }
+    } catch {
+      setEnrollmentState('error')
+      setEnrollmentMessage('Could not cancel registration. Try again.')
+    }
   }
 
   return (
@@ -344,21 +383,23 @@ function App() {
           <h2 id="device-enrollment-title">This Windows device</h2>
           {enrollmentState !== 'enrolled' && (
             <>
-              <label htmlFor="device-name">Device name</label>
-              <input
-                id="device-name"
-                value={deviceName}
-                onChange={(event) => setDeviceName(event.target.value)}
-                maxLength={64}
-                disabled={enrollmentState === 'waiting'}
-              />
               <button
                 type="button"
                 onClick={() => void handleStartEnrollment()}
-                disabled={enrollmentState === 'loading' || enrollmentState === 'waiting'}
+                disabled={enrollmentState === 'loading' || enrollmentState === 'starting' || enrollmentState === 'waiting' || enrollmentState === 'cancelling'}
               >
-                {enrollmentState === 'waiting' ? 'Waiting for approval...' : 'Register this PC'}
+                {enrollmentState === 'starting' ? 'Opening browser...' : enrollmentState === 'waiting' ? 'Waiting for approval...' : 'Register this PC'}
               </button>
+              {(enrollmentState === 'waiting' || enrollmentState === 'cancelling') && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void handleCancelEnrollment()}
+                  disabled={enrollmentState === 'cancelling'}
+                >
+                  Cancel registration
+                </button>
+              )}
             </>
           )}
           <p role={enrollmentState === 'error' ? 'alert' : 'status'}>
