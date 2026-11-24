@@ -8,7 +8,6 @@ const CREDENTIAL_FILE = 'device-credential.enc'
 
 type PendingEnrollment = {
   deviceCode: string
-  userCode: string
   expiresAt: number
   intervalSeconds: number
 }
@@ -29,8 +28,6 @@ export type DeviceEnrollmentResult =
   | {
       ok: true
       state: 'authorization_pending'
-      userCode: string
-      expiresAt: number
       intervalSeconds: number
     }
   | {
@@ -43,21 +40,22 @@ export type DeviceEnrollmentResult =
       error: string
     }
 
+export type CancelEnrollmentResult =
+  | { ok: true; state: 'cancelled' }
+  | Extract<DeviceEnrollmentResult, { ok: true; state: 'enrolled' }>
+
 export type DeviceEnrollmentStatus =
   | {
       enrolled: false
-      suggestedName: string
       message?: string
     }
   | {
       enrolled: true
-      suggestedName: string
       device: StoredCredential['device']
       warning?: string
     }
   | {
       enrolled: false
-      suggestedName: string
       error: string
     }
 
@@ -78,12 +76,6 @@ function normalizeControlOrigin(value: string): string {
     throw new Error('The Copyrade control URL must be HTTPS or a loopback development URL.')
   }
   return url.origin
-}
-
-function normalizeDeviceName(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const normalized = value.trim().replace(/\s+/g, ' ')
-  return normalized.length >= 1 && normalized.length <= 64 ? normalized : null
 }
 
 function isStoredCredential(value: unknown): value is StoredCredential {
@@ -113,6 +105,7 @@ async function readResponseBody(response: Response): Promise<Record<string, unkn
 export class DeviceEnrollmentManager {
   private readonly controlOrigin: string
   private pending: PendingEnrollment | null = null
+  private pollInFlight: Promise<DeviceEnrollmentResult> | null = null
 
   constructor() {
     this.controlOrigin = normalizeControlOrigin(
@@ -165,10 +158,9 @@ export class DeviceEnrollmentManager {
   }
 
   async status(): Promise<DeviceEnrollmentStatus> {
-    const suggestedName = hostname().slice(0, 64) || 'Windows PC'
     try {
       const credential = await this.loadCredential()
-      if (!credential) return { enrolled: false, suggestedName }
+      if (!credential) return { enrolled: false }
 
       try {
         const response = await fetch(`${credential.controlOrigin}/api/device-session`, {
@@ -179,16 +171,14 @@ export class DeviceEnrollmentManager {
           this.pending = null
           return {
             enrolled: false,
-            suggestedName,
             message: 'This device was removed from the Copyrade account.',
           }
         }
         if (!response.ok) throw new Error('Credential validation failed')
-        return { enrolled: true, suggestedName, device: credential.device }
+        return { enrolled: true, device: credential.device }
       } catch {
         return {
           enrolled: true,
-          suggestedName,
           device: credential.device,
           warning: 'Copyrade could not verify this registration right now.',
         }
@@ -196,7 +186,6 @@ export class DeviceEnrollmentManager {
     } catch {
       return {
         enrolled: false,
-        suggestedName,
         error: 'The saved device credential could not be read.',
       }
     }
@@ -264,11 +253,8 @@ export class DeviceEnrollmentManager {
     }
   }
 
-  async start(deviceNameValue: unknown): Promise<DeviceEnrollmentResult> {
-    const deviceName = normalizeDeviceName(deviceNameValue)
-    if (!deviceName) {
-      return { ok: false, error: 'Enter a device name between 1 and 64 characters.' }
-    }
+  async start(): Promise<DeviceEnrollmentResult> {
+    const deviceName = hostname().slice(0, 64).trim() || 'Windows PC'
 
     try {
       const response = await fetch(`${this.controlOrigin}/api/device-enrollments`, {
@@ -289,7 +275,6 @@ export class DeviceEnrollmentManager {
 
       if (
         typeof body.deviceCode !== 'string' ||
-        typeof body.userCode !== 'string' ||
         typeof body.expiresAt !== 'number' ||
         typeof body.intervalSeconds !== 'number' ||
         typeof body.verificationUriComplete !== 'string'
@@ -304,7 +289,6 @@ export class DeviceEnrollmentManager {
 
       this.pending = {
         deviceCode: body.deviceCode,
-        userCode: body.userCode,
         expiresAt: body.expiresAt,
         intervalSeconds: body.intervalSeconds,
       }
@@ -313,8 +297,6 @@ export class DeviceEnrollmentManager {
       return {
         ok: true,
         state: 'authorization_pending',
-        userCode: this.pending.userCode,
-        expiresAt: this.pending.expiresAt,
         intervalSeconds: this.pending.intervalSeconds,
       }
     } catch {
@@ -323,7 +305,25 @@ export class DeviceEnrollmentManager {
     }
   }
 
-  async poll(): Promise<DeviceEnrollmentResult> {
+  poll(): Promise<DeviceEnrollmentResult> {
+    if (this.pollInFlight) return this.pollInFlight
+    const polling = this.pollPending().finally(() => {
+      if (this.pollInFlight === polling) this.pollInFlight = null
+    })
+    this.pollInFlight = polling
+    return polling
+  }
+
+  async cancel(): Promise<CancelEnrollmentResult> {
+    if (this.pollInFlight) {
+      const result = await this.pollInFlight
+      if (result.ok && result.state === 'enrolled') return result
+    }
+    this.pending = null
+    return { ok: true, state: 'cancelled' }
+  }
+
+  private async pollPending(): Promise<DeviceEnrollmentResult> {
     if (!this.pending) return { ok: false, error: 'No enrollment is in progress.' }
     if (this.pending.expiresAt <= Date.now()) {
       this.pending = null
@@ -341,8 +341,6 @@ export class DeviceEnrollmentManager {
         return {
           ok: true,
           state: 'authorization_pending',
-          userCode: this.pending.userCode,
-          expiresAt: this.pending.expiresAt,
           intervalSeconds: this.pending.intervalSeconds,
         }
       }

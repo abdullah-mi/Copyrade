@@ -28,6 +28,7 @@ const CLIPBOARD_WRITE_IMAGE_CHANNEL = 'clipboard:write-image'
 const DEVICE_STATUS_CHANNEL = 'device:status'
 const DEVICE_ENROLL_START_CHANNEL = 'device:enroll-start'
 const DEVICE_ENROLL_POLL_CHANNEL = 'device:enroll-poll'
+const DEVICE_ENROLL_CANCEL_CHANNEL = 'device:enroll-cancel'
 const DEVICE_SIGNAL_TICKET_CHANNEL = 'device:signal-ticket'
 const DEVICE_PRESENCE_TICKET_CHANNEL = 'device:presence-ticket'
 const SYSTEM_POWER_CHANNEL = 'system:power'
@@ -219,21 +220,27 @@ ipcMain.handle(CLIPBOARD_WRITE_CHANNEL, writeClipboardText)
 ipcMain.handle(CLIPBOARD_WRITE_IMAGE_CHANNEL, writeClipboardImage)
 ipcMain.handle(DEVICE_STATUS_CHANNEL, (event) => {
   if (!isTrustedSender(event.senderFrame)) {
-    return { enrolled: false, suggestedName: '', error: 'The device request was not trusted.' }
+    return { enrolled: false, error: 'The device request was not trusted.' }
   }
   return deviceEnrollment.status()
 })
-ipcMain.handle(DEVICE_ENROLL_START_CHANNEL, (event, deviceName: unknown) => {
+ipcMain.handle(DEVICE_ENROLL_START_CHANNEL, (event) => {
   if (!isTrustedSender(event.senderFrame)) {
     return { ok: false, error: 'The device request was not trusted.' }
   }
-  return deviceEnrollment.start(deviceName)
+  return deviceEnrollment.start()
 })
 ipcMain.handle(DEVICE_ENROLL_POLL_CHANNEL, (event) => {
   if (!isTrustedSender(event.senderFrame)) {
     return { ok: false, error: 'The device request was not trusted.' }
   }
   return deviceEnrollment.poll()
+})
+ipcMain.handle(DEVICE_ENROLL_CANCEL_CHANNEL, (event) => {
+  if (!isTrustedSender(event.senderFrame)) {
+    return { ok: false, error: 'The device request was not trusted.' }
+  }
+  return deviceEnrollment.cancel()
 })
 ipcMain.handle(DEVICE_SIGNAL_TICKET_CHANNEL, (event) => {
   if (!isTrustedSender(event.senderFrame)) {

@@ -23,8 +23,9 @@ interface CopyradeDesktopApi {
   }
   device: {
     getStatus(): Promise<DeviceEnrollmentStatus>
-    startEnrollment(deviceName: string): Promise<DeviceEnrollmentResult>
+    startEnrollment(): Promise<DeviceEnrollmentResult>
     pollEnrollment(): Promise<DeviceEnrollmentResult>
+    cancelEnrollment(): Promise<CancelEnrollmentResult>
     getSignalingTicket(): Promise<SignalingTicketResult>
     getPresenceTicket(): Promise<PresenceTicketResult>
   }
@@ -52,8 +53,6 @@ type DeviceEnrollmentResult =
   | {
       ok: true
       state: 'authorization_pending'
-      userCode: string
-      expiresAt: number
       intervalSeconds: number
     }
   | {
@@ -63,11 +62,14 @@ type DeviceEnrollmentResult =
     }
   | { ok: false; error: string }
 
+type CancelEnrollmentResult =
+  | { ok: true; state: 'cancelled' }
+  | Extract<DeviceEnrollmentResult, { ok: true; state: 'enrolled' }>
+
 type DeviceEnrollmentStatus =
-  | { enrolled: false; suggestedName: string; message?: string; error?: string }
+  | { enrolled: false; message?: string; error?: string }
   | {
       enrolled: true
-      suggestedName: string
       device: EnrolledDevice
       warning?: string
     }

@@ -31,9 +31,9 @@ npm start --workspace @copyrade/desktop
 
 The desktop app defaults to the hosted control plane. To enroll it:
 
-1. In Electron, enter a recognizable device name and start registration.
-2. Complete sign-in and approve the matching device/code in the browser window
-   Electron opens.
+1. In Copyrade Desktop, select **Register this PC**. Copyrade uses the Windows
+   computer name.
+2. In the browser, sign in if prompted and select **Approve device**.
 3. Wait for Electron to show that the PC is registered and online.
 4. On the phone, open
    [the web app](https://copyrade-staging.abdullahijaz-m.workers.dev), sign

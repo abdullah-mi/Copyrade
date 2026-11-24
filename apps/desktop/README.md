@@ -21,6 +21,8 @@ npm start --workspace @copyrade/desktop
 The app uses the hosted Copyrade service by default. Registration opens a
 browser approval flow; the issued device credential is encrypted with Electron
 `safeStorage` and remains in the main process.
+If you close the browser before approving, choose **Cancel registration** in
+the desktop app and start again. The unused browser code expires automatically.
 
 For a local Worker override:
 
